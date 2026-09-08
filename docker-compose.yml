@@ -1,0 +1,70 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-tontine}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tontine}
+      POSTGRES_DB: ${POSTGRES_DB:-tontine}
+    ports:
+      # 5433 côté hôte : le PostgreSQL du poste occupe déjà 5432.
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # L'API attend que la base réponde vraiment, pas seulement que le
+      # conteneur soit lancé.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tontine}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      # 6380 côté hôte : le Redis du poste occupe déjà 6379.
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: ./backend
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-tontine}:${POSTGRES_PASSWORD:-tontine}@db:5432/${POSTGRES_DB:-tontine}
+      REDIS_URL: redis://redis:6379/0
+      CORS_ORIGINS: http://localhost:5173
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./frontend
+      # La cible « dev » sert Vite ; l'image par défaut construit le bundle
+      # et le sert derrière nginx, c'est celle qu'on déploie.
+      target: dev
+    environment:
+      VITE_API_URL: http://localhost:8000/api/v1
+    command: npm run dev -- --host 0.0.0.0
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
