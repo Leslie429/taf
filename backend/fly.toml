@@ -1,0 +1,39 @@
+# Déploiement de l'API sur Fly.io.
+#   fly launch --no-deploy --copy-config     (depuis backend/)
+#   fly postgres create --name tontine-db
+#   fly postgres attach tontine-db
+#   fly secrets set JWT_SECRET=... MOMO_CALLBACK_SECRET=... CORS_ORIGINS=https://...
+#   fly deploy
+
+app = "tontine-api"
+primary_region = "cdg"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  ENVIRONMENT = "production"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  # La machine s'arrête quand personne ne s'en sert : sur une démonstration,
+  # c'est la différence entre gratuit et facturé. Premier appel un peu lent.
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [http_service.http_options.response.headers]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+[[http_service.checks]]
+  grace_period = "15s"
+  interval = "30s"
+  method = "GET"
+  timeout = "5s"
+  path = "/health"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

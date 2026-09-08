@@ -1,0 +1,53 @@
+# Déploiement sur Render — l'alternative sans carte bancaire.
+#
+# À savoir avant de choisir : les services gratuits s'endorment au bout de
+# quinze minutes sans trafic (le premier appel prend alors ~30 s), et la base
+# PostgreSQL gratuite expire au bout de 90 jours. Pour une démonstration qui
+# doit rester en ligne durablement, Fly.io est plus sûr.
+#
+#   1. Pousser le dépôt sur GitHub
+#   2. Render → New → Blueprint → sélectionner ce dépôt
+#   3. Renseigner MOMO_* dans le tableau de bord si le sandbox est branché
+
+databases:
+  - name: tontine-db
+    databaseName: tontine
+    user: tontine
+    plan: free
+
+services:
+  - type: web
+    name: tontine-api
+    runtime: docker
+    plan: free
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: tontine-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MOMO_CALLBACK_SECRET
+        generateValue: true
+      - key: ENVIRONMENT
+        value: production
+      # `fromService … property: host` ne renvoie que l'hôte, sans schéma :
+      # Render demande donc la valeur au moment de créer le blueprint.
+      # Exemple : https://tontine-web.onrender.com
+      - key: CORS_ORIGINS
+        sync: false
+
+  - type: web
+    name: tontine-web
+    runtime: docker
+    plan: free
+    rootDir: frontend
+    dockerfilePath: ./Dockerfile
+    envVars:
+      # Figée à la compilation du bundle.
+      # Exemple : https://tontine-api.onrender.com/api/v1
+      - key: VITE_API_URL
+        sync: false

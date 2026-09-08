@@ -1,0 +1,25 @@
+# Déploiement du front sur Fly.io.
+#   fly launch --no-deploy --copy-config      (depuis frontend/)
+#   fly deploy --build-arg VITE_API_URL=https://tontine-api.fly.dev/api/v1
+#
+# L'URL de l'API est figée à la compilation : la changer impose un redéploiement.
+
+app = "tontine-web"
+primary_region = "cdg"
+
+[build]
+  dockerfile = "Dockerfile"
+  # Écrasé par --build-arg au déploiement.
+  [build.args]
+    VITE_API_URL = "https://tontine-api.fly.dev/api/v1"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
