@@ -1,5 +1,6 @@
 # Python
 __pycache__/
+*.egg-info/
 *.py[cod]
 .venv/
 venv/
@@ -12,6 +13,7 @@ htmlcov/
 # Node
 node_modules/
 dist/
+*.tsbuildinfo
 *.local
 
 # Environnement
