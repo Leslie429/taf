@@ -1,0 +1,884 @@
+@import './styles/tokens.css';
+
+/* ------------------------------------------------------------------ *
+ * Socle
+ * ------------------------------------------------------------------ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--ground);
+}
+
+body {
+  font-family: var(--font-ui);
+  color: var(--ink);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Aucune ombre nulle part : en clair la hiérarchie vient du trait, en sombre
+ * elle vient du fond. */
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+h1 {
+  font-size: 27px;
+  font-weight: 700;
+}
+
+h2 {
+  font-size: 17.5px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------ *
+ * Coquille mobile
+ * ------------------------------------------------------------------ */
+
+.app {
+  /* dvh plutôt que vh : la barre d'adresse mobile ne doit pas rogner l'écran. */
+  min-height: 100dvh;
+  max-width: 480px;
+  margin: 0 auto;
+  background: var(--ground);
+}
+
+/* La place de la barre n'est réservée que lorsqu'elle est là — l'écran de
+ * connexion ne doit pas traîner un vide en bas. */
+.app--with-nav {
+  padding-bottom: calc(76px + env(safe-area-inset-bottom));
+}
+
+.app__main {
+  padding: 18px var(--page-x) 24px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-md);
+}
+
+/* Le bandeau haut : l'élément qui se détache du fond. Il porte l'identité. */
+.block {
+  background: var(--block);
+  color: var(--on-block);
+  padding: calc(20px + env(safe-area-inset-top)) var(--page-x) var(--gap-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.block--bordered {
+  border-bottom: 1px solid var(--nav-border);
+}
+
+.block__muted {
+  color: var(--on-block-muted);
+}
+
+/* ------------------------------------------------------------------ *
+ * Navigation basse
+ * ------------------------------------------------------------------ */
+
+.nav {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0;
+  width: 100%;
+  max-width: 480px;
+  height: calc(76px + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--nav);
+  border-top: 1px solid var(--nav-border);
+  color: var(--on-nav);
+  display: flex;
+  align-items: center;
+  z-index: 10;
+}
+
+.nav__item {
+  flex: 1;
+  min-height: var(--target-min);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  color: var(--on-nav-muted);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.nav__item--active {
+  color: var(--accent);
+  font-weight: 800;
+}
+
+/* ------------------------------------------------------------------ *
+ * Typographie utilitaire
+ * ------------------------------------------------------------------ */
+
+/* Les montants ne sont jamais colorés : la couleur porte le statut, pas la
+ * valeur. Un chiffre orange se lirait « j'ai perdu de l'argent ». */
+.figure {
+  font-family: var(--font-figure);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: inherit;
+}
+
+.figure--hero {
+  font-size: 60px;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.figure--lg {
+  font-size: 32px;
+  line-height: 1;
+  letter-spacing: -0.035em;
+}
+
+.figure--md {
+  font-size: 21px;
+}
+
+.figure__unit {
+  font-family: var(--font-ui);
+  font-size: 0.42em;
+  font-weight: 600;
+  color: var(--ink-muted);
+  margin-left: 0.12em;
+  letter-spacing: 0;
+}
+
+.block .figure__unit {
+  color: var(--on-block-muted);
+}
+
+.label {
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.label--soft {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--ink-muted);
+}
+
+.label--accent {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.muted {
+  color: var(--ink-muted);
+  font-size: 12.5px;
+}
+
+/* ------------------------------------------------------------------ *
+ * Cartes
+ * ------------------------------------------------------------------ */
+
+.card {
+  background: var(--surface);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 15px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+
+/* Secondaire : trait doux, pas de fond. Réserve le trait fort au principal. */
+.card--soft {
+  background: transparent;
+  border: 1px solid var(--border-soft);
+}
+
+.card--flat {
+  background: var(--surface-alt);
+  border: 0;
+}
+
+.card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--gap-sm);
+}
+
+/* ------------------------------------------------------------------ *
+ * Barre de tours segmentée
+ *
+ * La signature du produit : on y lit d'un coup d'œil ce qui est acquis, ce
+ * qui se collecte, et où se trouve son propre tour.
+ * ------------------------------------------------------------------ */
+
+.tours {
+  display: flex;
+  height: 11px;
+  gap: 3px;
+}
+
+.tours__seg {
+  flex-grow: 1;
+  border-radius: 2px;
+  background: var(--inactive);
+  transform-origin: bottom;
+  animation: seg-grow 0.5s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
+.tours__seg--done {
+  background: var(--primary);
+}
+
+.tours__seg--current {
+  background: var(--urgent);
+}
+
+.tours__seg--mine {
+  background: var(--inactive);
+  border: 2px solid var(--primary);
+}
+
+/* Sur fond de bloc, l'inactif doit rester visible sans casser le contraste. */
+.block .tours__seg {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.block .tours__seg--done {
+  background: var(--accent);
+}
+
+.block .tours__seg--mine {
+  border-color: var(--accent);
+}
+
+@keyframes seg-grow {
+  from {
+    transform: scaleY(0.2);
+    opacity: 0;
+  }
+  to {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Badges d'état
+ * ------------------------------------------------------------------ */
+
+.badge {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: var(--radius-badge);
+  padding: 4px 7px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.badge--neutral {
+  border: 1px solid var(--border-soft);
+  color: var(--ink-muted);
+}
+
+.badge--progress {
+  background: var(--urgent);
+  color: var(--on-urgent);
+}
+
+.badge--success {
+  background: var(--positive);
+  color: var(--ground);
+}
+
+.badge--danger {
+  background: var(--urgent);
+  color: var(--on-urgent);
+}
+
+.badge--accent {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.pill {
+  font-size: 11.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: var(--ink);
+  color: var(--ground);
+  border-radius: var(--radius-pill);
+  padding: 3px 9px;
+}
+
+/* ------------------------------------------------------------------ *
+ * Boutons
+ * ------------------------------------------------------------------ */
+
+.btn {
+  min-height: var(--target-min);
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--gap-sm);
+  font-family: inherit;
+  font-size: 14.5px;
+  font-weight: 700;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border-soft);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn--primary {
+  min-height: var(--target-primary);
+  width: 100%;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  font-size: 15.5px;
+  font-weight: 800;
+  letter-spacing: -0.005em;
+  text-transform: uppercase;
+}
+
+.btn--ghost {
+  border-color: transparent;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0;
+  min-height: var(--target-min);
+}
+
+.btn--icon {
+  width: 40px;
+  min-height: 40px;
+  padding: 0;
+  border-radius: var(--radius-control);
+}
+
+.block .btn--icon {
+  border-color: rgba(255, 255, 255, 0.35);
+  color: var(--on-block);
+}
+
+/* Le bouton d'action principal respire lentement : il attire l'œil sans
+ * clignoter, ce qui compte sur l'écran où l'on engage de l'argent. */
+.btn--breathing {
+  animation: breathe 3.2s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.03);
+  }
+}
+
+/* Barre d'action collée en bas, au-dessus de la navigation. */
+.action-bar {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(76px + env(safe-area-inset-bottom));
+  width: 100%;
+  max-width: 480px;
+  padding: 16px var(--page-x);
+  background: linear-gradient(180deg, transparent 0%, var(--ground) 32%);
+  z-index: 9;
+}
+
+/* ------------------------------------------------------------------ *
+ * Formulaires
+ * ------------------------------------------------------------------ */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.field > span {
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+input,
+select {
+  min-height: var(--target-min);
+  padding: 12px 14px;
+  font-family: inherit;
+  /* 16px minimum : en dessous, iOS zoome au focus. */
+  font-size: 16px;
+  color: var(--ink);
+  background: var(--surface);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-control);
+}
+
+input::placeholder {
+  color: var(--ink-muted);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-md);
+}
+
+.alert {
+  background: var(--urgent);
+  color: var(--on-urgent);
+  border-radius: var(--radius-control);
+  padding: 11px 13px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--gap-sm);
+  background: var(--surface-alt);
+  border-radius: var(--radius-card);
+  padding: 13px 14px;
+  font-size: 12.5px;
+  color: var(--ink-muted);
+  line-height: 1.5;
+}
+
+/* ------------------------------------------------------------------ *
+ * Listes et rangées
+ * ------------------------------------------------------------------ */
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.row--between {
+  justify-content: space-between;
+}
+
+.row__grow {
+  flex-grow: 1;
+  min-width: 0;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.stat {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-card);
+  padding: 10px 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stat__value {
+  font-family: var(--font-figure);
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.stat__label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-control);
+  background: var(--surface-alt);
+  color: var(--ink-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 13.5px;
+  flex-shrink: 0;
+}
+
+.avatar--me {
+  background: var(--ink);
+  color: var(--accent);
+}
+
+.avatar--done {
+  background: var(--positive-soft);
+  color: var(--positive);
+}
+
+/* ------------------------------------------------------------------ *
+ * Entrées en scène
+ * ------------------------------------------------------------------ */
+
+.rise {
+  animation: rise 0.62s cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.wipe {
+  animation: wipe 0.8s cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+
+@keyframes wipe {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* Quelqu'un qui a demandé moins de mouvement ne doit pas subir le nôtre. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Écran d'attente de confirmation
+ *
+ * Le moment où l'utilisateur a de l'argent en suspens. Tout y est calme et
+ * lisible : des ondes lentes plutôt qu'un tourniquet, la référence de la
+ * transaction en clair, et la promesse de non-double-débit.
+ * ------------------------------------------------------------------ */
+
+.waiting {
+  min-height: 100dvh;
+  background: var(--ground);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--gap-lg);
+  padding: 88px var(--page-x) 28px;
+  text-align: center;
+}
+
+.pulse {
+  position: relative;
+  width: 132px;
+  height: 132px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.pulse__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent);
+  animation: pulse-out 2.8s cubic-bezier(0.25, 0.6, 0.3, 1) infinite;
+}
+
+.pulse__core {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: breathe 2.8s ease-in-out infinite;
+}
+
+@keyframes pulse-out {
+  0% {
+    transform: scale(0.72);
+    opacity: 0.5;
+  }
+  80%,
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+.steps {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.steps__row {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  font-size: 14px;
+}
+
+.steps__link {
+  width: 2px;
+  height: 22px;
+  background: var(--border-soft);
+  margin-left: 12px;
+}
+
+.steps__dot {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid var(--border-soft);
+  flex-shrink: 0;
+}
+
+.steps__dot--done {
+  border-color: transparent;
+  background: var(--positive);
+  color: var(--ground);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.steps__dot--active {
+  border-color: var(--accent);
+  animation: breathe 2.8s ease-in-out infinite;
+}
+
+.steps__row--todo {
+  color: var(--ink-muted);
+}
+
+/* ------------------------------------------------------------------ *
+ * Choix d'opérateur et rangées de récapitulatif
+ * ------------------------------------------------------------------ */
+
+.choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--gap-sm);
+}
+
+.choice {
+  position: relative;
+  min-height: var(--target-min);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+  text-align: left;
+  font-family: inherit;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--ink-muted);
+  background: transparent;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-card);
+  cursor: pointer;
+}
+
+.choice--selected {
+  background: var(--surface);
+  border: var(--border-width) solid var(--border);
+  color: var(--ink);
+}
+
+.choice__mark {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.choice__tag {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-control);
+  background: var(--surface-alt);
+  color: var(--ink-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.recap {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-card);
+  padding: 2px 15px;
+}
+
+.recap__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap-sm);
+  padding: 11px 0;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.recap__row:last-child {
+  border-bottom: 0;
+}
+
+.recap__key {
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--ink-muted);
+}
+
+/* Rangée de membre dans l'ordre de passage. */
+.member {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-card);
+  padding: 12px 14px;
+}
+
+.member--current {
+  background: var(--surface);
+  border: var(--border-width) solid var(--urgent);
+}
+
+.member--me {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+}
+
+.member--me .muted {
+  color: inherit;
+  opacity: 0.75;
+}
+
+.member__rank {
+  font-family: var(--font-figure);
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+  width: 14px;
+  flex-shrink: 0;
+}
+
+.member--me .member__rank {
+  color: inherit;
+  opacity: 0.6;
+}

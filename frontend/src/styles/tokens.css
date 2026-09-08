@@ -1,0 +1,122 @@
+/* Jetons de design — un système, deux thèmes.
+ *
+ * Le clair est le défaut : l'application s'utilise dehors, en plein jour.
+ * Le sombre suit `prefers-color-scheme`, et `data-theme` sur <html> permet
+ * de forcer l'un ou l'autre depuis les réglages.
+ *
+ * Seules ces valeurs changent d'un thème à l'autre. La structure, la
+ * typographie et les formes sont communes — c'est ce qui évite que
+ * l'interface se réorganise sous les doigts au changement de thème.
+ *
+ * Le bloc sombre est écrit deux fois, faute de moyen en CSS pur de partager
+ * une déclaration entre une media query et un sélecteur d'attribut. Toute
+ * modification doit toucher les deux.
+ */
+
+:root {
+  /* --- Couleur, thème clair --- */
+  --ground: #f2f3ec;
+  --surface: #ffffff;
+  --surface-alt: #e9ebe1;
+  --block: #14523a;
+  --on-block: #f2f3ec;
+  --on-block-muted: #9dbfaf;
+  --ink: #0e1a13;
+  --ink-muted: #6b7a71;
+  --border: #0e1a13;
+  --border-width: 1.5px;
+  --border-soft: #d6d9cd;
+  --accent: #c2ee3e;
+  --on-accent: #0e1a13;
+  --primary: #14523a;
+  --positive: #14523a;
+  --positive-soft: rgba(20, 82, 58, 0.12);
+  --urgent: #ee5b22;
+  --on-urgent: #fff4ee;
+  --inactive: #dfe1d6;
+  --nav: #0e1a13;
+  --nav-border: transparent;
+  --on-nav: #f2f3ec;
+  --on-nav-muted: #7c8c82;
+
+  /* --- Typographie --- */
+  --font-ui: Archivo, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-figure: 'Space Grotesk', ui-monospace, system-ui, sans-serif;
+
+  /* --- Formes --- */
+  --radius-card: 8px;
+  --radius-control: 6px;
+  --radius-badge: 3px;
+  --radius-pill: 999px;
+
+  /* --- Cibles tactiles --- */
+  --target-primary: 56px;
+  --target-min: 44px;
+
+  /* --- Rythme --- */
+  --gap-xs: 6px;
+  --gap-sm: 10px;
+  --gap-md: 16px;
+  --gap-lg: 22px;
+  --page-x: 20px;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --ground: #12100e;
+    --surface: #1b1815;
+    --surface-alt: #24201c;
+    --block: #24201c;
+    --on-block: #f5f1ea;
+    --on-block-muted: #8e867c;
+    --ink: #f5f1ea;
+    --ink-muted: #8e867c;
+    --border: #2e2925;
+    --border-width: 1px;
+    --border-soft: #2e2925;
+    --accent: #e0ac55;
+    --on-accent: #12100e;
+    --primary: #e0ac55;
+    --positive: #6fd3a3;
+    --positive-soft: rgba(111, 211, 163, 0.14);
+    --urgent: #e8734a;
+    --on-urgent: #12100e;
+    --inactive: #322c27;
+    --nav: #1b1815;
+    --nav-border: #2e2925;
+    --on-nav: #f5f1ea;
+    --on-nav-muted: #8e867c;
+
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --ground: #12100e;
+  --surface: #1b1815;
+  --surface-alt: #24201c;
+  --block: #24201c;
+  --on-block: #f5f1ea;
+  --on-block-muted: #8e867c;
+  --ink: #f5f1ea;
+  --ink-muted: #8e867c;
+  --border: #2e2925;
+  --border-width: 1px;
+  --border-soft: #2e2925;
+  --accent: #e0ac55;
+  --on-accent: #12100e;
+  --primary: #e0ac55;
+  --positive: #6fd3a3;
+  --positive-soft: rgba(111, 211, 163, 0.14);
+  --urgent: #e8734a;
+  --on-urgent: #12100e;
+  --inactive: #322c27;
+  --nav: #1b1815;
+  --nav-border: #2e2925;
+  --on-nav: #f5f1ea;
+  --on-nav-muted: #8e867c;
+
+  color-scheme: dark;
+}
