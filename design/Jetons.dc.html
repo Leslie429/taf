@@ -1,0 +1,170 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap">
+  <style>
+    body { margin: 0; }
+    a { color: #14523A; } a:hover { color: #0E1A13; }
+    @keyframes fadeJ { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+    .fJ { animation: fadeJ .58s cubic-bezier(.2,.75,.25,1) both; }
+  </style>
+</helmet>
+
+<div style="width: 1180px; height: 900px; background: #FFFFFF; color: #0E1A13; font-family: Archivo, system-ui, sans-serif; padding: 40px; box-sizing: border-box; display: flex; flex-direction: column; gap: 26px;">
+
+  <div class="fJ" style="display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding-bottom: 20px; border-bottom: 1.5px solid #0E1A13;">
+    <div style="display: flex; flex-direction: column; gap: 6px;">
+      <div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 30px; font-weight: 700; letter-spacing: -0.03em;">Un système, deux thèmes</div>
+      <div style="font-size: 13.5px; color: #6B7A71; max-width: 700px; line-height: 1.55;">La structure, la typographie et les formes sont identiques dans les deux thèmes. Seules ces quatorze valeurs changent. L'accent qui mène est celui qui se lit sur le fond : le lime sur la craie, le laiton sur la nuit. <strong style="color: #0E1A13;">Le clair est le thème par défaut</strong> — l'usage se fait dehors, en plein jour ; le sombre s'active sur <span style="font-family: 'Space Grotesk', monospace; font-size: 12.5px;">prefers-color-scheme</span>, et reste accessible dans les réglages.</div>
+    </div>
+    <div style="display: flex; gap: 8px; flex-shrink: 0;">
+      <div style="display: flex; align-items: center; gap: 7px; border: 1.5px solid #0E1A13; border-radius: 999px; padding: 6px 8px 6px 12px;"><span style="width: 13px; height: 13px; border-radius: 50%; background: #F2F3EC; border: 1px solid #D6D9CD; box-sizing: border-box;"></span><span style="font-size: 12px; font-weight: 700;">Clair</span><span style="font-size: 9.5px; font-weight: 800; letter-spacing: .1em; background: #C2EE3E; border-radius: 3px; padding: 3px 6px;">DÉFAUT</span></div>
+      <div style="display: flex; align-items: center; gap: 7px; border: 1px solid #D6D9CD; border-radius: 999px; padding: 6px 12px;"><span style="width: 13px; height: 13px; border-radius: 50%; background: #12100E;"></span><span style="font-size: 12px; font-weight: 700; color: #6B7A71;">Sombre</span></div>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px;">
+
+    <div class="fJ" style="animation-delay: .05s; display: flex; flex-direction: column; gap: 0;">
+      <div style="display: flex; align-items: center; gap: 12px; padding-bottom: 9px; border-bottom: 1px solid #E4E6E1;">
+        <div style="flex-grow: 1; font-size: 10px; font-weight: 800; letter-spacing: .16em; color: #9AA0A6;">JETON</div>
+        <div style="width: 96px; font-size: 10px; font-weight: 800; letter-spacing: .16em; color: #9AA0A6;">CLAIR</div>
+        <div style="width: 96px; font-size: 10px; font-weight: 800; letter-spacing: .16em; color: #9AA0A6;">SOMBRE</div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid #F0F1EE;">
+        <div style="flex-grow: 1;"><div style="font-family: 'Space Grotesk', monospace; font-size: 13px; font-weight: 600;">--ground</div><div style="font-size: 11.5px; color: #6B7A71;">Fond de l'écran</div></div>
+        <div style="width: 96px; display: flex; align-items: center; gap: 7px;"><span style="width: 24px; height: 24px; border-radius: 5px; background: #F2F3EC; border: 1px solid #D6D9CD; box-sizing: border-box; flex-shrink: 0;"></span><span style="font-size: 11px; color: #6B7A71; font-variant-numeric: tabular-nums;">F2F3EC</span></div>
+        <div style="width: 96px; display: flex; align-items: center; gap: 7px;"><span style="width: 24px; height: 24px; border-radius: 5px; background: #12100E; flex-shrink: 0;"></span><span style="font-size: 11px; color: #6B7A71; font-variant-numeric: tabular-nums;">12100E</span></div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid #F0F1EE;">
+        <div style="flex-grow: 1;"><div style="font-family: 'Space Grotesk', monospace; font-size: 13px; font-weight: 600;">--surface</div><div style="font-size: 11.5px; color: #6B7A71;">Cartes de tontine</div></div>
+        <div style="width: 96px; display: flex; align-items: center; gap: 7px;"><span style="width: 24px; height: 24px; border-radius: 5px; background: #FFFFFF; border: 1px solid #D6D9CD; box-sizing: border-box; flex-shrink: 0;"></span><span style="font-size: 11px; color: #6B7A71; font-variant-numeric: tabular-nums;">FFFFFF</span></div>
+        <div style="width: 96px; display: flex; align-items: center; gap: 7px;"><span style="width: 24px; height: 24px; border-radius: 5px; background: #1B1815; flex-shrink: 0;"></span><span style="font-size: 11px; color: #6B7A71; font-variant-numeric: tabular-nums;">1B1815</span></div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid #F0F1EE;">
+        <div style="flex-grow: 1;"><div style="font-family: 'Space Grotesk', monospace; font-size: 13px; font-weight: 600;">--block</div><div style="font-size: 11.5px; color: #6B7A71;">Bandeau haut — ce qui se détache du fond</div></div>
+        <div style="width: 96px; display: flex; align-items: center; gap: 7px;"><span style="width: 24px; height: 24px; border-radius: 5px; background: #14523A; flex-shrink: 0;"></span><span style="font-size: 11px; color: #6B7A71; font-variant-numeric: tabular-nums;">14523A</span></div>
+        <div style="width: 96px; display: flex; align-items: center; gap: 7px;"><span style="width: 24px; height: 24px; border-radius: 5px; background: #24201C; flex-shrink: 0;"></span><span style="font-size: 11px; color: #6B7A71; font-variant-numeric: tabular-nums;">24201C</span></div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid #F0F1EE;">
+        <div style="flex-grow: 1;"><div style="font-family: 'Space Grotesk', monospace; font-size: 13px; font-weight: 600;">--ink</div><div style="font-size: 11.5px; color: #6B7A71;">Texte principal et montants</div></div>
+        <div style="width: 96px; display: flex; align-items: center; gap: 7px;"><span style="width: 24px; height: 24px; border-radius: 5px; background: #0E1A13; flex-shrink: 0;"></span><span style="font-size: 11px; color: #6B7A71; font-variant-numeric: tabular-nums;">0E1A13</span></div>
+        <div style="width: 96px; display: flex; align-items: center; gap: 7px;"><span style="width: 24px; height: 24px; border-radius: 5px; background: #F5F1EA; border: 1px solid #D6D9CD; box-sizing: border-box; flex-shrink: 0;"></span><span style="font-size: 11px; color: #6B7A71; font-variant-numeric: tabular-nums;">F5F1EA</span></div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid #F0F1EE;">
+        <div style="flex-grow: 1;"><div style="font-family: 'Space Grotesk', monospace; font-size: 13px; font-weight: 600;">--ink-muted</div><div style="font-size: 11.5px; color: #6B7A71;">Légendes, unités, dates</div></div>
+        <div style="width: 96px; display: flex; align-items: center; gap: 7px;"><span style="width: 24px; height: 24px; border-radius: 5px; background: #6B7A71; flex-shrink: 0;"></span><span style="font-size: 11px; color: #6B7A71; font-variant-numeric: tabular-nums;">6B7A71</span></div>
+        <div style="width: 96px; display: flex; align-items: center; gap: 7px;"><span style="width: 24px; height: 24px; border-radius: 5px; background: #8E867C; flex-shrink: 0;"></span><span style="font-size: 11px; color: #6B7A71; font-variant-numeric: tabular-nums;">8E867C</span></div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid #F0F1EE;">
+        <div style="flex-grow: 1;"><div style="font-family: 'Space Grotesk', monospace; font-size: 13px; font-weight: 600;">--border</div><div style="font-size: 11.5px; color: #6B7A71;">Contour des cartes — 1,5 px clair, 1 px sombre</div></div>
+        <div style="width: 96px; display: flex; align-items: center; gap: 7px;"><span style="width: 24px; height: 24px; border-radius: 5px; background: #0E1A13; flex-shrink: 0;"></span><span style="font-size: 11px; color: #6B7A71; font-variant-numeric: tabular-nums;">0E1A13</span></div>
+        <div style="width: 96px; display: flex; align-items: center; gap: 7px;"><span style="width: 24px; height: 24px; border-radius: 5px; background: #2E2925; flex-shrink: 0;"></span><span style="font-size: 11px; color: #6B7A71; font-variant-numeric: tabular-nums;">2E2925</span></div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px; padding: 9px 0;">
+        <div style="flex-grow: 1;"><div style="font-family: 'Space Grotesk', monospace; font-size: 13px; font-weight: 600;">--border-soft</div><div style="font-size: 11.5px; color: #6B7A71;">Éléments secondaires, chiffres-clés</div></div>
+        <div style="width: 96px; display: flex; align-items: center; gap: 7px;"><span style="width: 24px; height: 24px; border-radius: 5px; background: #D6D9CD; flex-shrink: 0;"></span><span style="font-size: 11px; color: #6B7A71; font-variant-numeric: tabular-nums;">D6D9CD</span></div>
+        <div style="width: 96px; display: flex; align-items: center; gap: 7px;"><span style="width: 24px; height: 24px; border-radius: 5px; background: #2E2925; flex-shrink: 0;"></span><span style="font-size: 11px; color: #6B7A71; font-variant-numeric: tabular-nums;">2E2925</span></div>
+      </div>
+    </div>
+
+    <div class="fJ" style="animation-delay: .11s; display: flex; flex-direction: column; gap: 0;">
+      <div style="display: flex; align-items: center; gap: 12px; padding-bottom: 9px; border-bottom: 1px solid #E4E6E1;">
+        <div style="flex-grow: 1; font-size: 10px; font-weight: 800; letter-spacing: .16em; color: #9AA0A6;">JETON</div>
+        <div style="width: 96px; font-size: 10px; font-weight: 800; letter-spacing: .16em; color: #9AA0A6;">CLAIR</div>
+        <div style="width: 96px; font-size: 10px; font-weight: 800; letter-spacing: .16em; color: #9AA0A6;">SOMBRE</div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid #F0F1EE;">
+        <div style="flex-grow: 1;"><div style="font-family: 'Space Grotesk', monospace; font-size: 13px; font-weight: 600;">--accent</div><div style="font-size: 11.5px; color: #6B7A71;">Remplissage du bouton d'action</div></div>
+        <div style="width: 96px; display: flex; align-items: center; gap: 7px;"><span style="width: 24px; height: 24px; border-radius: 5px; background: #C2EE3E; flex-shrink: 0;"></span><span style="font-size: 11px; color: #6B7A71; font-variant-numeric: tabular-nums;">C2EE3E</span></div>
+        <div style="width: 96px; display: flex; align-items: center; gap: 7px;"><span style="width: 24px; height: 24px; border-radius: 5px; background: #E0AC55; flex-shrink: 0;"></span><span style="font-size: 11px; color: #6B7A71; font-variant-numeric: tabular-nums;">E0AC55</span></div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid #F0F1EE;">
+        <div style="flex-grow: 1;"><div style="font-family: 'Space Grotesk', monospace; font-size: 13px; font-weight: 600;">--on-accent</div><div style="font-size: 11.5px; color: #6B7A71;">Texte posé sur l'accent</div></div>
+        <div style="width: 96px; display: flex; align-items: center; gap: 7px;"><span style="width: 24px; height: 24px; border-radius: 5px; background: #0E1A13; flex-shrink: 0;"></span><span style="font-size: 11px; color: #6B7A71; font-variant-numeric: tabular-nums;">0E1A13</span></div>
+        <div style="width: 96px; display: flex; align-items: center; gap: 7px;"><span style="width: 24px; height: 24px; border-radius: 5px; background: #12100E; flex-shrink: 0;"></span><span style="font-size: 11px; color: #6B7A71; font-variant-numeric: tabular-nums;">12100E</span></div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid #F0F1EE;">
+        <div style="flex-grow: 1;"><div style="font-family: 'Space Grotesk', monospace; font-size: 13px; font-weight: 600;">--primary</div><div style="font-size: 11.5px; color: #6B7A71;">Emphase, tours déjà acquis</div></div>
+        <div style="width: 96px; display: flex; align-items: center; gap: 7px;"><span style="width: 24px; height: 24px; border-radius: 5px; background: #14523A; flex-shrink: 0;"></span><span style="font-size: 11px; color: #6B7A71; font-variant-numeric: tabular-nums;">14523A</span></div>
+        <div style="width: 96px; display: flex; align-items: center; gap: 7px;"><span style="width: 24px; height: 24px; border-radius: 5px; background: #E0AC55; flex-shrink: 0;"></span><span style="font-size: 11px; color: #6B7A71; font-variant-numeric: tabular-nums;">E0AC55</span></div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid #F0F1EE;">
+        <div style="flex-grow: 1;"><div style="font-family: 'Space Grotesk', monospace; font-size: 13px; font-weight: 600;">--positive</div><div style="font-size: 11.5px; color: #6B7A71;">Financé, payée, versé</div></div>
+        <div style="width: 96px; display: flex; align-items: center; gap: 7px;"><span style="width: 24px; height: 24px; border-radius: 5px; background: #14523A; flex-shrink: 0;"></span><span style="font-size: 11px; color: #6B7A71; font-variant-numeric: tabular-nums;">14523A</span></div>
+        <div style="width: 96px; display: flex; align-items: center; gap: 7px;"><span style="width: 24px; height: 24px; border-radius: 5px; background: #6FD3A3; flex-shrink: 0;"></span><span style="font-size: 11px; color: #6B7A71; font-variant-numeric: tabular-nums;">6FD3A3</span></div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid #F0F1EE;">
+        <div style="flex-grow: 1;"><div style="font-family: 'Space Grotesk', monospace; font-size: 13px; font-weight: 600;">--urgent</div><div style="font-size: 11.5px; color: #6B7A71;">À payer, en retard, échouée</div></div>
+        <div style="width: 96px; display: flex; align-items: center; gap: 7px;"><span style="width: 24px; height: 24px; border-radius: 5px; background: #EE5B22; flex-shrink: 0;"></span><span style="font-size: 11px; color: #6B7A71; font-variant-numeric: tabular-nums;">EE5B22</span></div>
+        <div style="width: 96px; display: flex; align-items: center; gap: 7px;"><span style="width: 24px; height: 24px; border-radius: 5px; background: #E8734A; flex-shrink: 0;"></span><span style="font-size: 11px; color: #6B7A71; font-variant-numeric: tabular-nums;">E8734A</span></div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid #F0F1EE;">
+        <div style="flex-grow: 1;"><div style="font-family: 'Space Grotesk', monospace; font-size: 13px; font-weight: 600;">--inactive</div><div style="font-size: 11.5px; color: #6B7A71;">Tours à venir</div></div>
+        <div style="width: 96px; display: flex; align-items: center; gap: 7px;"><span style="width: 24px; height: 24px; border-radius: 5px; background: #DFE1D6; flex-shrink: 0;"></span><span style="font-size: 11px; color: #6B7A71; font-variant-numeric: tabular-nums;">DFE1D6</span></div>
+        <div style="width: 96px; display: flex; align-items: center; gap: 7px;"><span style="width: 24px; height: 24px; border-radius: 5px; background: #322C27; flex-shrink: 0;"></span><span style="font-size: 11px; color: #6B7A71; font-variant-numeric: tabular-nums;">322C27</span></div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px; padding: 9px 0;">
+        <div style="flex-grow: 1;"><div style="font-family: 'Space Grotesk', monospace; font-size: 13px; font-weight: 600;">--nav</div><div style="font-size: 11.5px; color: #6B7A71;">Barre de navigation basse</div></div>
+        <div style="width: 96px; display: flex; align-items: center; gap: 7px;"><span style="width: 24px; height: 24px; border-radius: 5px; background: #0E1A13; flex-shrink: 0;"></span><span style="font-size: 11px; color: #6B7A71; font-variant-numeric: tabular-nums;">0E1A13</span></div>
+        <div style="width: 96px; display: flex; align-items: center; gap: 7px;"><span style="width: 24px; height: 24px; border-radius: 5px; background: #1B1815; flex-shrink: 0;"></span><span style="font-size: 11px; color: #6B7A71; font-variant-numeric: tabular-nums;">1B1815</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="fJ" style="animation-delay: .18s; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 30px; padding-top: 24px; border-top: 1px solid #E4E6E1;">
+    <div style="display: flex; flex-direction: column; gap: 9px;">
+      <div style="font-size: 10px; font-weight: 800; letter-spacing: .16em; color: #9AA0A6;">TYPOGRAPHIE</div>
+      <div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 27px; font-weight: 700; letter-spacing: -0.03em; font-variant-numeric: tabular-nums;">30 000 F</div>
+      <div style="font-size: 12.5px; color: #6B7A71; line-height: 1.55;"><strong style="color: #0E1A13;">Space Grotesk</strong> 500–700 pour les montants et les titres de bloc, toujours en chiffres tabulaires.<br><strong style="color: #0E1A13;">Archivo</strong> 400–800 pour l'interface. Les micro-libellés : 9,5 à 11,5 px, graisse 700–800, interlettrage 0,1 à 0,2 em, en majuscules.</div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 9px;">
+      <div style="font-size: 10px; font-weight: 800; letter-spacing: .16em; color: #9AA0A6;">FORMES</div>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <span style="width: 44px; height: 30px; border-radius: 8px; border: 1.5px solid #0E1A13; box-sizing: border-box;"></span>
+        <span style="width: 44px; height: 30px; border-radius: 6px; background: #C2EE3E;"></span>
+        <span style="height: 22px; border-radius: 999px; background: #0E1A13; color: #F2F3EC; font-size: 11px; font-weight: 700; padding: 0 10px; display: flex; align-items: center;">03</span>
+        <span style="height: 22px; border-radius: 3px; background: #C2EE3E; font-size: 10px; font-weight: 800; padding: 0 7px; display: flex; align-items: center; letter-spacing: .08em;">TOUR 2/6</span>
+      </div>
+      <div style="font-size: 12.5px; color: #6B7A71; line-height: 1.55;">Rayons : 8 px cartes, 6 px boutons, 999 px pastilles, 3 px badges. <strong style="color: #0E1A13;">Aucune ombre, dans aucun thème</strong> — en clair la hiérarchie vient du trait, en sombre elle vient du fond. Cible principale 56 px, jamais moins de 44 px ailleurs.</div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 9px;">
+      <div style="font-size: 10px; font-weight: 800; letter-spacing: .16em; color: #9AA0A6;">LA RÈGLE QUI TIENT LE TOUT</div>
+      <div style="background: #F2F3EC; border-left: 3px solid #14523A; border-radius: 0 6px 6px 0; padding: 13px 15px;">
+        <div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 15px; font-weight: 600; line-height: 1.4;">Les montants ne sont jamais colorés.</div>
+        <div style="font-size: 12.5px; color: #6B7A71; line-height: 1.55; margin-top: 5px;">La couleur porte le statut, pas la valeur. Un chiffre reste en <span style="font-family: 'Space Grotesk', monospace; font-size: 12px;">--ink</span> dans les deux thèmes, ce qui évite qu'un utilisateur lise « rouge » comme « j'ai perdu de l'argent ».</div>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 7px; margin-top: 2px;">
+        <span style="font-size: 11px; font-weight: 700; border: 1px solid #D6D9CD; border-radius: 999px; padding: 4px 9px; color: #6B7A71;">À payer · due</span>
+        <span style="font-size: 11px; font-weight: 700; border: 1px solid #EE5B22; border-radius: 999px; padding: 4px 9px; color: #EE5B22;">En cours · processing</span>
+        <span style="font-size: 11px; font-weight: 700; border: 1px solid #14523A; border-radius: 999px; padding: 4px 9px; color: #14523A;">Payée · paid</span>
+        <span style="font-size: 11px; font-weight: 700; border: 1px solid #14523A; border-radius: 999px; padding: 4px 9px; color: #14523A;">Versé · paid_out</span>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

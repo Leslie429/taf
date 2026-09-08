@@ -1,0 +1,23 @@
+{
+  "pages": [
+    { "id": "page-1", "name": "Le système" },
+    { "id": "page-2", "name": "Parcours mobile" }
+  ],
+  "artboards": [
+    { "file": "Main.dc.html", "title": "Accueil — thème clair (défaut)", "x": 0, "y": 0, "w": 390, "h": 844, "page": "page-1" },
+    { "file": "AccueilSombre.dc.html", "title": "Accueil — thème sombre", "x": 500, "y": 0, "w": 390, "h": 844, "page": "page-1" },
+    { "file": "Jetons.dc.html", "title": "Jetons, typographie et formes", "x": 1000, "y": 0, "w": 1180, "h": 900, "page": "page-1" },
+
+    { "file": "Detail.dc.html", "title": "Détail d'une tontine — clair", "x": 0, "y": 0, "w": 390, "h": 844, "page": "page-2" },
+    { "file": "Paiement.dc.html", "title": "Paiement Mobile Money — clair", "x": 500, "y": 0, "w": 390, "h": 844, "page": "page-2" },
+    { "file": "Attente.dc.html", "title": "Attente de confirmation — sombre", "x": 1000, "y": 0, "w": 390, "h": 844, "page": "page-2" },
+    { "file": "Ordre.dc.html", "title": "Ordre de passage — sombre", "x": 1500, "y": 0, "w": 390, "h": 844, "page": "page-2" }
+  ],
+  "annotations": [
+    { "id": "systeme-note", "x": 0, "y": -230, "w": 400, "text": "Le même écran, les deux thèmes.\n\nB et C ne différaient pas que par la couleur : cartes arrondies contre bordures épaisses, Space Grotesk contre Archivo. Basculer de l'un à l'autre aurait restructuré l'application au changement de thème.\n\nJe les ai fondus : structure et typographie communes, couleur qui bascule.\n\nLe clair est le défaut ; le sombre suit le réglage du téléphone.", "page": "page-1" },
+    { "id": "accent-note", "x": 500, "y": -230, "w": 390, "text": "La règle qui rend la bascule cohérente : l'accent qui mène est celui qui se lit sur le fond.\n\nLe lime est illisible en texte sur la craie mais parfait en aplat ; le laiton se lit en texte comme en aplat sur la nuit.\n\nLe vert forêt de C devient le laiton de B — même rôle, deux valeurs.", "page": "page-1" },
+    { "id": "parcours-note", "x": 0, "y": -230, "w": 400, "text": "Deux écrans en clair, deux en sombre — pour vérifier que le système tient des deux côtés, pas seulement sur l'accueil.\n\nLes libellés d'état viennent de l'API telle qu'elle est écrite : À payer, En cours, Payée, Financé, Versé.", "page": "page-2" },
+    { "id": "attente-note", "x": 1000, "y": -230, "w": 390, "text": "L'écran le plus important du produit : l'utilisateur y attend, argent en suspens. D'où la référence de transaction affichée et la promesse explicite de non-double-débit — que le backend tient déjà par sa clé d'idempotence.", "page": "page-2" }
+  ],
+  "launch": { "view": "canvas", "page": "page-1" }
+}

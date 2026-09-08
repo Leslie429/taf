@@ -1,0 +1,83 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap">
+  <style>
+    body { margin: 0; }
+    a { color: #E0AC55; } a:hover { color: #F0C77E; }
+    @keyframes ringAt { 0% { transform: scale(.72); opacity: .5; } 80% { transform: scale(1.6); opacity: 0; } 100% { transform: scale(1.6); opacity: 0; } }
+    @keyframes breatheAt { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.055); } }
+    @keyframes riseAt { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+    @keyframes dotsAt { 0%, 20% { opacity: .25; } 50% { opacity: 1; } 80%, 100% { opacity: .25; } }
+    .ringAt { animation: ringAt 2.8s cubic-bezier(.25,.6,.3,1) infinite; }
+    .breatheAt { animation: breatheAt 2.8s ease-in-out infinite; }
+    .rAt { animation: riseAt .64s cubic-bezier(.2,.75,.25,1) both; }
+    .dotAt { animation: dotsAt 1.4s ease-in-out infinite; }
+  </style>
+</helmet>
+
+<div style="width: 390px; height: 844px; background: #12100E; color: #F5F1EA; font-family: Archivo, system-ui, sans-serif; position: relative; overflow: hidden;">
+
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 24px; padding: 88px 26px 0;">
+
+    <div style="position: relative; width: 132px; height: 132px; display: flex; align-items: center; justify-content: center;">
+      <span class="ringAt" style="position: absolute; inset: 0; border-radius: 50%; border: 1.5px solid #E0AC55;"></span>
+      <span class="ringAt" style="position: absolute; inset: 0; border-radius: 50%; border: 1.5px solid #E0AC55; animation-delay: .9s;"></span>
+      <span class="ringAt" style="position: absolute; inset: 0; border-radius: 50%; border: 1.5px solid #E0AC55; animation-delay: 1.8s;"></span>
+      <div class="breatheAt" style="width: 84px; height: 84px; border-radius: 50%; background: #E0AC55; color: #12100E; display: flex; align-items: center; justify-content: center;">
+        <svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="6" y="2.5" width="12" height="19" rx="2.6"></rect><path d="M10.6 18.4h2.8"></path>
+        </svg>
+      </div>
+    </div>
+
+    <div class="rAt" style="animation-delay: .1s; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center;">
+      <div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 26px; font-weight: 700; line-height: 1.2; letter-spacing: -0.03em;">Confirmez sur votre téléphone<span class="dotAt">…</span></div>
+      <div style="font-size: 13.5px; color: #9A9188; line-height: 1.55; max-width: 292px;">Composez votre code secret MTN MoMo quand l'invite apparaît. Cet écran se mettra à jour tout seul.</div>
+    </div>
+
+    <div class="rAt" style="animation-delay: .16s; background: #1B1815; border: 1px solid #2E2925; border-radius: 8px; padding: 15px 17px; width: 100%; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <span style="font-size: 11px; font-weight: 800; letter-spacing: .14em; color: #8E867C;">MONTANT</span>
+        <span style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.03em;">5 000 F</span>
+      </div>
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <span style="font-size: 11px; font-weight: 800; letter-spacing: .14em; color: #8E867C;">RÉFÉRENCE</span>
+        <span style="font-family: 'Space Grotesk', monospace; font-size: 13px; font-weight: 600; letter-spacing: .03em;">TXN-2A3836A114CA</span>
+      </div>
+    </div>
+
+    <div class="rAt" style="animation-delay: .22s; width: 100%; display: flex; flex-direction: column;">
+      <div style="display: flex; align-items: center; gap: 13px;">
+        <div style="width: 26px; height: 26px; border-radius: 50%; background: #6FD3A3; color: #12100E; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>
+        </div>
+        <span style="font-size: 14px; font-weight: 600;">Demande envoyée à l'opérateur</span>
+      </div>
+      <div style="width: 2px; height: 22px; background: #2E2925; margin-left: 12px;"></div>
+      <div style="display: flex; align-items: center; gap: 13px;">
+        <div class="breatheAt" style="width: 26px; height: 26px; border-radius: 50%; border: 2px solid #E0AC55; box-sizing: border-box; flex-shrink: 0;"></div>
+        <span style="font-size: 14px; font-weight: 700; color: #E0AC55;">Votre confirmation</span>
+      </div>
+      <div style="width: 2px; height: 22px; background: #2E2925; margin-left: 12px;"></div>
+      <div style="display: flex; align-items: center; gap: 13px;">
+        <div style="width: 26px; height: 26px; border-radius: 50%; border: 2px solid #322C27; box-sizing: border-box; flex-shrink: 0;"></div>
+        <span style="font-size: 14px; color: #8E867C;">Cotisation enregistrée</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 0 26px 28px; display: flex; flex-direction: column; align-items: center; gap: 15px;">
+    <div style="font-size: 12.5px; color: #8E867C; text-align: center; line-height: 1.5;">Rien reçu ? L'invite expire au bout de 2 minutes.<br>Vous pourrez réessayer sans être débité deux fois.</div>
+    <div style="height: 52px; width: 100%; border-radius: 6px; border: 1px solid #2E2925; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14.5px; color: #F5F1EA; letter-spacing: .04em;">ANNULER LA DEMANDE</div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

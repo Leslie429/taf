@@ -1,0 +1,111 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap">
+  <style>
+    body { margin: 0; }
+    a { color: #14523A; } a:hover { color: #0E1A13; }
+    @keyframes wipeDt { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+    @keyframes riseDt { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+    @keyframes growDt { from { transform: scaleY(.2); opacity: 0; } to { transform: scaleY(1); opacity: 1; } }
+    @keyframes haloDt { 0% { box-shadow: 0 0 0 0 rgba(238,91,34,.45); } 70% { box-shadow: 0 0 0 8px rgba(238,91,34,0); } 100% { box-shadow: 0 0 0 0 rgba(238,91,34,0); } }
+    .wipeDt { animation: wipeDt .8s cubic-bezier(.65,0,.35,1) both; }
+    .rDt { animation: riseDt .62s cubic-bezier(.2,.75,.25,1) both; }
+    .segDt { animation: growDt .5s cubic-bezier(.2,.8,.3,1) both; transform-origin: bottom; }
+    .haloDt { animation: haloDt 2.6s ease-out infinite; }
+  </style>
+</helmet>
+
+<div style="width: 390px; height: 844px; background: #F2F3EC; color: #0E1A13; font-family: Archivo, system-ui, sans-serif; position: relative; overflow: hidden;">
+
+  <div class="wipeDt" style="background: #14523A; color: #F2F3EC; padding: 52px 20px 22px; display: flex; flex-direction: column; gap: 15px;">
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+      <div style="width: 40px; height: 40px; border-radius: 6px; border: 1.5px solid rgba(242,243,236,.35); box-sizing: border-box; display: flex; align-items: center; justify-content: center;">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg>
+      </div>
+      <div style="font-size: 11px; font-weight: 800; letter-spacing: .16em; color: #C2EE3E;">EN COURS · 6 MEMBRES</div>
+      <div style="width: 40px; height: 40px; border-radius: 6px; border: 1.5px solid rgba(242,243,236,.35); box-sizing: border-box; display: flex; align-items: center; justify-content: center;">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 6h.01"></path><path d="M12 12h.01"></path><path d="M12 18h.01"></path></svg>
+      </div>
+    </div>
+
+    <div style="font-size: 27px; font-weight: 700; line-height: 1.15; letter-spacing: -0.025em;">Tontine du marché</div>
+
+    <div style="display: flex; flex-direction: column; gap: 11px;">
+      <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 12px;">
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <div style="font-size: 10.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #9DBFAF;">Cagnotte du tour 2</div>
+          <div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 32px; line-height: 1; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.035em;">10 000 <span style="font-family: Archivo, sans-serif; font-size: 14px; font-weight: 600; color: #9DBFAF;">/ 30 000 F</span></div>
+        </div>
+        <div style="font-size: 10px; font-weight: 800; letter-spacing: .08em; background: #EE5B22; color: #FFF4EE; border-radius: 3px; padding: 5px 8px; white-space: nowrap;">2 / 6 PAYÉ</div>
+      </div>
+      <div style="display: flex; height: 11px; gap: 3px;">
+        <div class="segDt" style="flex-grow: 1; background: #C2EE3E; border-radius: 2px;"></div>
+        <div class="segDt" style="animation-delay: .06s; flex-grow: 1; background: #EE5B22; border-radius: 2px;"></div>
+        <div class="segDt" style="animation-delay: .12s; flex-grow: 1; background: rgba(242,243,236,.22); border-radius: 2px;"></div>
+        <div class="segDt" style="animation-delay: .18s; flex-grow: 1; background: rgba(242,243,236,.22); border-radius: 2px;"></div>
+        <div class="segDt" style="animation-delay: .24s; flex-grow: 1; background: rgba(242,243,236,.22); border: 2px solid #C2EE3E; box-sizing: border-box; border-radius: 2px;"></div>
+        <div class="segDt" style="animation-delay: .3s; flex-grow: 1; background: rgba(242,243,236,.22); border-radius: 2px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="padding: 18px 20px 0; display: flex; flex-direction: column; gap: 11px;">
+    <div class="rDt" style="font-size: 11.5px; font-weight: 800; letter-spacing: .18em; text-transform: uppercase;">Échéances</div>
+
+    <div class="rDt" style="animation-delay: .06s; display: flex; align-items: center; gap: 13px; border: 1px solid #D6D9CD; border-radius: 8px; padding: 13px 14px;">
+      <div style="width: 40px; height: 40px; border-radius: 6px; background: #14523A; color: #C2EE3E; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>
+      </div>
+      <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 1px;">
+        <div style="font-size: 14.5px; font-weight: 700;">Tour 1 · versé à Awa</div>
+        <div style="font-size: 12px; color: #6B7A71; font-variant-numeric: tabular-nums;">1<sup>er</sup> septembre · 30 000 F</div>
+      </div>
+      <div style="font-size: 10px; font-weight: 800; letter-spacing: .08em; color: #14523A;">VERSÉ</div>
+    </div>
+
+    <div class="rDt" style="animation-delay: .12s; display: flex; align-items: center; gap: 13px; background: #FFFFFF; border: 1.5px solid #0E1A13; border-radius: 8px; padding: 13px 14px;">
+      <div class="haloDt" style="width: 40px; height: 40px; border-radius: 6px; background: #EE5B22; color: #FFF4EE; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-family: 'Space Grotesk', system-ui, sans-serif; font-weight: 700; font-size: 17px;">2</div>
+      <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 1px;">
+        <div style="font-size: 14.5px; font-weight: 700;">Tour 2 · pour Bruno</div>
+        <div style="font-size: 12px; color: #6B7A71; font-variant-numeric: tabular-nums;">1<sup>er</sup> octobre · votre part 5 000 F</div>
+      </div>
+      <div style="font-size: 10px; font-weight: 800; letter-spacing: .08em; background: #EE5B22; color: #FFF4EE; border-radius: 3px; padding: 5px 7px;">À PAYER</div>
+    </div>
+
+    <div class="rDt" style="animation-delay: .18s; display: flex; align-items: center; gap: 13px; border: 1px solid #D6D9CD; border-radius: 8px; padding: 13px 14px;">
+      <div style="width: 40px; height: 40px; border-radius: 6px; background: #DFE1D6; color: #6B7A71; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-family: 'Space Grotesk', system-ui, sans-serif; font-weight: 700; font-size: 17px;">3</div>
+      <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 1px;">
+        <div style="font-size: 14.5px; font-weight: 700;">Tour 3 · pour Chantal</div>
+        <div style="font-size: 12px; color: #6B7A71;">1<sup>er</sup> novembre</div>
+      </div>
+    </div>
+
+    <div class="rDt" style="animation-delay: .24s; display: flex; align-items: center; gap: 13px; border: 1.5px solid #14523A; border-radius: 8px; padding: 13px 14px;">
+      <div style="width: 40px; height: 40px; border-radius: 6px; border: 2px solid #14523A; box-sizing: border-box; color: #14523A; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-family: 'Space Grotesk', system-ui, sans-serif; font-weight: 700; font-size: 17px;">5</div>
+      <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 1px;">
+        <div style="font-size: 14.5px; font-weight: 700; color: #14523A;">Tour 5 · pour vous</div>
+        <div style="font-size: 12px; color: #6B7A71; font-variant-numeric: tabular-nums;">1<sup>er</sup> janvier · vous recevrez 30 000 F</div>
+      </div>
+      <div style="font-size: 10px; font-weight: 800; letter-spacing: .08em; background: #C2EE3E; border-radius: 3px; padding: 5px 7px;">VOUS</div>
+    </div>
+  </div>
+
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 16px 20px 24px; background: linear-gradient(180deg, rgba(242,243,236,0) 0%, #F2F3EC 32%);">
+    <div style="height: 56px; border-radius: 6px; background: #C2EE3E; color: #0E1A13; display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: 800; font-size: 15.5px;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="6" y="2.5" width="12" height="19" rx="2.6"></rect><path d="M10.6 18.4h2.8"></path>
+      </svg>
+      <span>PAYER MA PART · 5 000 F</span>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
