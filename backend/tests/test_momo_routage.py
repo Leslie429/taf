@@ -16,6 +16,7 @@ from app.services.momo import (
     FakeMoMoClient,
     MtnMoMoClient,
     ProductRoutedClient,
+    libelle_operateur,
 )
 
 
@@ -101,3 +102,27 @@ def test_la_production_recoit_la_devise_locale(monkeypatch):
         "app.services.momo.settings", Settings(momo_target_environment="mtnbenin", currency="XOF")
     )
     assert MtnMoMoClient()._devise == "XOF"
+
+
+@pytest.mark.parametrize(
+    "brut, attendu",
+    [
+        # Constaté sur le sandbox MTN : ces caractères font échouer l'appel.
+        ("Versement — cycle 3", "Versement - cycle 3"),
+        ("Groupe n°1", "Groupe n 1"),
+        ("Ecole (Benin)", "Ecole Benin"),
+        ("L’épargne d'Aïcha", "L épargne d Aïcha"),
+        ("Cotisation « mensuelle »", "Cotisation mensuelle"),
+        ("Tour 3/5 — 25 000 F", "Tour 3 5 - 25 000 F"),
+        # Les lettres accentuées passent : les retirer abîmerait les noms
+        # béninois sur le relevé du bénéficiaire.
+        ("Sègbé Adjovi", "Sègbé Adjovi"),
+        ("Tontine café", "Tontine café"),
+    ],
+)
+def test_le_libelle_est_ramene_a_ce_que_loperateur_accepte(brut, attendu):
+    assert libelle_operateur(brut) == attendu
+
+
+def test_le_libelle_est_tronque_a_cent_soixante():
+    assert len(libelle_operateur("a" * 300)) == 160

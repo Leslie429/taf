@@ -31,7 +31,7 @@ quelques secondes.
 | Fiabilité des paiements | Clé d'idempotence en base, machine à états des transactions, rejeu inoffensif |
 | Intégration opérateur | API MTN MoMo (Collection et Disbursement) sur sandbox, avec double de test |
 | Sécurité | JWT accès/rafraîchissement, webhooks signés HMAC-SHA256 comparés en temps constant |
-| Qualité | 66 tests Pytest (91 % de couverture) et 10 tests Vitest, lint Ruff, typage strict `mypy` et TypeScript, CI GitHub Actions |
+| Qualité | 75 tests Pytest (91 % de couverture) et 10 tests Vitest, lint Ruff, typage strict `mypy` et TypeScript, CI GitHub Actions |
 | Exploitation | Docker Compose, migrations Alembic versionnées, healthchecks |
 
 ## Pile technique
@@ -80,7 +80,7 @@ npm run dev
 ```bash
 # Back-end — nécessite une base tontine_test
 createdb tontine_test
-cd backend && pytest              # 66 tests, 91 % de couverture
+cd backend && pytest              # 75 tests, 91 % de couverture
 
 # Front-end
 cd frontend && npm run test       # 10 tests

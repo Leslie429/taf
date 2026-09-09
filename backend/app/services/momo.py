@@ -12,6 +12,8 @@ sans double débit, y compris après un timeout réseau.
 
 import hashlib
 import hmac
+import re
+import unicodedata
 import uuid
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -19,6 +21,23 @@ from typing import Any, Protocol
 import httpx
 
 from app.core.config import settings
+
+# La ponctuation typographique fait rejeter l'appel par MTN. Constaté sur le
+# sandbox : « — » et « ° » valent un 400, l'apostrophe courbe et les parenthèses
+# un 200 — que le client ne compte pas comme une acceptation, puisqu'un
+# versement accepté répond 202. Les lettres accentuées, elles, passent sans
+# problème : le filtre ne doit donc pas se réduire à de l'ASCII, sous peine de
+# transformer « Sègbé » en « Sgb » sur le relevé du bénéficiaire.
+_REMPLACEMENTS = {"—": "-", "–": "-", "‑": "-", "’": " ", "«": " ", "»": " ", "…": " "}
+_INDESIRABLES = re.compile(r"[^0-9A-Za-zÀ-ÖØ-öø-ÿ .,-]")
+
+
+def libelle_operateur(texte: str) -> str:
+    """Ramène un libellé à ce que l'opérateur accepte, accents compris."""
+    for source, cible in _REMPLACEMENTS.items():
+        texte = texte.replace(source, cible)
+    texte = unicodedata.normalize("NFC", texte)
+    return re.sub(r"\s+", " ", _INDESIRABLES.sub(" ", texte)).strip()[:160]
 
 
 class MoMoError(Exception):
@@ -100,8 +119,8 @@ class MtnMoMoClient:
             "currency": self._devise,
             "externalId": str(reference),
             "payer": {"partyIdType": "MSISDN", "partyId": payer_phone.lstrip("+")},
-            "payerMessage": note[:160],
-            "payeeNote": note[:160],
+            "payerMessage": libelle_operateur(note),
+            "payeeNote": libelle_operateur(note),
         }
         response = self._client.post(
             "/collection/v1_0/requesttopay",
@@ -123,8 +142,8 @@ class MtnMoMoClient:
             "currency": self._devise,
             "externalId": str(reference),
             "payee": {"partyIdType": "MSISDN", "partyId": payee_phone.lstrip("+")},
-            "payerMessage": note[:160],
-            "payeeNote": note[:160],
+            "payerMessage": libelle_operateur(note),
+            "payeeNote": libelle_operateur(note),
         }
         response = self._client.post(
             "/disbursement/v1_0/transfer",
