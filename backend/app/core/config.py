@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -36,6 +37,20 @@ class Settings(BaseSettings):
     # La monnaie de la zone UEMOA n'a pas de sous-unité : 1 XOF = 1 unité mineure.
     currency: str = "XOF"
 
+    @field_validator("database_url")
+    @classmethod
+    def _forcer_le_pilote(cls, url: str) -> str:
+        """Impose psycopg 3 dans l'URL de la base.
+
+        Les hébergeurs managés délivrent tous une chaîne en `postgresql://`,
+        parfois en `postgres://`. SQLAlchemy y lit alors le pilote psycopg2,
+        que le projet n'installe pas — et l'échec survient au premier appel,
+        loin du déploiement, sous une erreur qui ne désigne pas la cause.
+        """
+        for prefixe in ("postgresql://", "postgres://"):
+            if url.startswith(prefixe):
+                return "postgresql+psycopg://" + url[len(prefixe):]
+        return url
 
     @property
     def cors_origin_list(self) -> list[str]:
