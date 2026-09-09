@@ -58,7 +58,7 @@ class MtnMoMoClient:
         response = self._client.post(
             f"/{product}/token/",
             auth=(settings.momo_api_user, settings.momo_api_key),
-            headers={"Ocp-Apim-Subscription-Key": settings.momo_subscription_key},
+            headers={"Ocp-Apim-Subscription-Key": settings.momo_key_for(product)},
         )
         if response.status_code >= 400:
             raise MoMoError(f"Authentification {product} refusée : {response.text}")
@@ -72,7 +72,7 @@ class MtnMoMoClient:
             "Authorization": f"Bearer {self._token(product)}",
             "X-Reference-Id": str(reference),
             "X-Target-Environment": settings.momo_target_environment,
-            "Ocp-Apim-Subscription-Key": settings.momo_subscription_key,
+            "Ocp-Apim-Subscription-Key": settings.momo_key_for(product),
             "Content-Type": "application/json",
         }
 

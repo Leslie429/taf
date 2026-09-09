@@ -28,7 +28,12 @@ class Settings(BaseSettings):
 
     # MTN MoMo sandbox — https://momodeveloper.mtn.com
     momo_base_url: str = "https://sandbox.momodeveloper.mtn.com"
+    # MTN délivre une clé d'abonnement par produit : s'abonner à Collection ne
+    # donne aucun droit sur Disbursement. `momo_subscription_key` reste accepté
+    # comme repli pour un déploiement qui n'utilise qu'un seul des deux.
     momo_subscription_key: str = ""
+    momo_collection_key: str = ""
+    momo_disbursement_key: str = ""
     momo_api_user: str = ""
     momo_api_key: str = ""
     momo_target_environment: str = "sandbox"
@@ -36,6 +41,14 @@ class Settings(BaseSettings):
 
     # La monnaie de la zone UEMOA n'a pas de sous-unité : 1 XOF = 1 unité mineure.
     currency: str = "XOF"
+
+    def momo_key_for(self, product: str) -> str:
+        """La clé d'abonnement du produit demandé, ou une chaîne vide."""
+        specifique = {
+            "collection": self.momo_collection_key,
+            "disbursement": self.momo_disbursement_key,
+        }.get(product, "")
+        return specifique or self.momo_subscription_key
 
     @field_validator("database_url")
     @classmethod
