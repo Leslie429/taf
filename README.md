@@ -227,13 +227,51 @@ canvas à la demande.
 
 ## Mobile Money
 
-Le client vit dans [`app/services/momo.py`](backend/app/services/momo.py).
-Sans `MOMO_SUBSCRIPTION_KEY` configurée, l'API bascule automatiquement sur
-`FakeMoMoClient` : le développement local ne dépend pas d'un compte MTN.
+Le client vit dans [`app/services/momo.py`](backend/app/services/momo.py) et se
+choisit **produit par produit**, dans
+[`app/api/deps.py`](backend/app/api/deps.py) :
 
-Pour brancher le sandbox réel : créer un compte sur
-[momodeveloper.mtn.com](https://momodeveloper.mtn.com), souscrire aux produits
-*Collection* et *Disbursement*, puis renseigner les clés dans `.env`.
+| Clés renseignées | Encaissement | Versement |
+| --- | --- | --- |
+| aucune | double | double |
+| `MOMO_DISBURSEMENT_KEY` seule | double | MTN |
+| les deux | MTN | MTN |
+
+MTN délivre une clé d'abonnement **par produit** : souscrire à *Collection* ne
+donne aucun droit sur *Disbursement*. Confondre les deux vaut un 401.
+
+### Ce que le sandbox MTN autorise aujourd'hui
+
+*Disbursement* se souscrit normalement. **Le produit *Collection* est
+saturé** : Azure API Management y plafonne à 25 000 abonnements, tous
+développeurs confondus, et le portail refuse toute nouvelle souscription.
+
+```json
+{"error":{"code":"ValidationError","message":"You've reached the maximum number
+of Subscriptions (25000) in Product. Please delete one or more Subscription(s)
+from Product to continue..."}}
+```
+
+Le message vise le compte, mais la limite porte sur le produit : un compte
+vierge se fait rejeter de la même façon, et il n'y a rien à supprimer de son
+côté. C'est ce qui a motivé le choix produit par produit — un opérateur
+partiellement disponible est une situation d'exploitation ordinaire, pas un
+accident de démonstration.
+
+### Brancher le sandbox
+
+1. Créer un compte sur [momodeveloper.mtn.com](https://momodeveloper.mtn.com)
+   et souscrire aux produits accessibles
+2. Provisionner l'utilisateur d'API — deux appels qui déclarent l'hôte de
+   callback, sans quoi MTN n'enverra jamais rien :
+
+```bash
+export MOMO_DISBURSEMENT_KEY=<clé primaire du produit>
+python scripts/provisionner_momo.py --produit disbursement --hote tontine-api.fly.dev
+```
+
+Le script imprime la commande `fly secrets set` à exécuter. La clé d'API n'est
+renvoyée qu'une fois par MTN : elle n'est plus relisible ensuite.
 
 ## Déploiement
 
