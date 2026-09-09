@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import auth, groups, history, payments
+from app.api.routes import admin, auth, groups, history, payments
 from app.core.config import settings
 
 app = FastAPI(
@@ -26,6 +26,7 @@ app.include_router(auth.router, prefix="/api/v1")
 app.include_router(groups.router, prefix="/api/v1")
 app.include_router(payments.router, prefix="/api/v1")
 app.include_router(history.router, prefix="/api/v1")
+app.include_router(admin.router, prefix="/api/v1")
 
 
 @app.get("/health", tags=["système"])

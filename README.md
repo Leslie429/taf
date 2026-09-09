@@ -31,7 +31,7 @@ quelques secondes.
 | Fiabilité des paiements | Clé d'idempotence en base, machine à états des transactions, rejeu inoffensif |
 | Intégration opérateur | API MTN MoMo (Collection et Disbursement) sur sandbox, avec double de test |
 | Sécurité | JWT accès/rafraîchissement, limitation de débit, révocation à la déconnexion, webhooks signés HMAC-SHA256 comparés en temps constant, callbacks non signés vérifiés auprès de l'opérateur |
-| Qualité | 93 tests Pytest (92 % de couverture) et 10 tests Vitest, lint Ruff, typage strict `mypy` et TypeScript, CI GitHub Actions |
+| Qualité | 105 tests Pytest (92 % de couverture) et 10 tests Vitest, lint Ruff, typage strict `mypy` et TypeScript, CI GitHub Actions |
 | Exploitation | Docker Compose, migrations Alembic versionnées, healthchecks |
 
 ## Pile technique
@@ -80,7 +80,7 @@ npm run dev
 ```bash
 # Back-end — nécessite une base tontine_test
 createdb tontine_test
-cd backend && pytest              # 93 tests, 92 % de couverture
+cd backend && pytest              # 105 tests, 92 % de couverture
 
 # Front-end
 cd frontend && npm run test       # 10 tests
@@ -215,6 +215,43 @@ Les transitions autorisées sont déclarées dans `ALLOWED_TRANSITIONS` ; toute
 autre tentative lève `InvalidTransition`. Une transaction `failed` est
 terminale : on n'y revient pas, on en crée une nouvelle.
 
+## Le rapprochement quotidien
+
+Un callback se perd, un réseau coupe au mauvais moment, un opérateur change
+d'avis. Le grand livre finit par diverger du relevé de l'opérateur, et rien
+dans l'application ne le signalera de lui-même. C'est le rôle de
+[`scripts/rapprocher.py`](backend/scripts/rapprocher.py).
+
+Deux divergences, deux traitements — et l'écart de gravité entre elles est tout
+le sujet :
+
+| Constat | Ce que ça veut dire | Traitement |
+| --- | --- | --- |
+| `unconfirmed` | en cours chez nous, tranché chez l'opérateur | **rattrapé** : le verdict est appliqué |
+| `operator_silent` | l'opérateur n'a pas répondu, ou n'a rien tranché | signalé, rien n'est touché |
+| `unknown_at_operator` | l'opérateur ignore la référence | **signalé, jamais corrigé** |
+| `disputed_success` | réussi chez nous, démenti par l'opérateur | **signalé, jamais corrigé** |
+
+Les deux derniers sont les cas graves : de l'argent figure au grand livre sans
+contrepartie chez l'opérateur. La réparation est une contrepassation, et une
+contrepassation est une décision — pas un effet de bord de tâche planifiée. Le
+script sort en code 2 pour qu'une tâche planifiée puisse alerter.
+
+Trois garde-fous :
+
+- **Un délai de grâce de quinze minutes.** Une transaction qui vient de partir
+  n'est pas un écart : l'opérateur a le droit de mettre un moment à trancher.
+- **Le même chemin que le webhook.** `tontine.appliquer_verdict` sert aux deux.
+  Deux chemins séparés finiraient par diverger — exactement l'écart qu'un
+  rapprochement est censé détecter, pas produire.
+- **Aucune correction silencieuse.** Chaque constat laisse une ligne dans
+  `reconciliation_divergences`, résolu ou non, avec les deux états au moment du
+  constat. Un écart se relit des mois plus tard, quand les statuts ont bougé.
+
+`GET /api/v1/admin/reconciliation` expose le dernier rapprochement, réservé aux
+comptes portant `is_staff` — à ne pas confondre avec `Membership.is_admin`, qui
+n'administre qu'une tontine.
+
 ## Modèle de données
 
 ```
@@ -223,7 +260,8 @@ users ─┬─ memberships ─┬─ tontine_groups
        │                                                   │
 accounts ◀───────── ledger_entries ────────────────────────┘
 
-webhook_events   (journal des callbacks opérateur)
+webhook_events            (journal des callbacks opérateur)
+reconciliation_runs ── reconciliation_divergences   (écarts constatés)
 ```
 
 - `tontine_groups` — les paramètres : montant, fréquence, date de départ
@@ -429,7 +467,6 @@ les paiements avec
 
 - [ ] Journal d'audit horodaté des actions d'administration
 - [ ] Relances automatiques des cotisations en retard (Celery battant)
-- [ ] Rapprochement quotidien entre le grand livre et le relevé opérateur
 - [ ] PWA hors connexion : consultation et file de cotisations en attente
 - [ ] Notifications SMS
 

@@ -192,6 +192,25 @@ def confirm_contribution(db: Session, transaction: Transaction, *, success: bool
     db.flush()
 
 
+def appliquer_verdict(db: Session, transaction: Transaction, *, success: bool) -> None:
+    """Applique le verdict de l'opérateur à une transaction, quel qu'en soit le porteur.
+
+    Le webhook et le rapprochement quotidien passent par ici tous les deux.
+    Deux chemins séparés finiraient par diverger, et c'est exactement le genre
+    d'écart qu'un rapprochement est censé détecter, pas produire.
+    """
+    if transaction.type == TransactionType.CONTRIBUTION:
+        confirm_contribution(db, transaction, success=success)
+        return
+
+    if transaction.type == TransactionType.PAYOUT:
+        cycle = db.execute(
+            select(Cycle).where(Cycle.id == UUID(transaction.idempotency_key.split(":")[1]))
+        ).scalar_one_or_none()
+        if cycle is not None:
+            confirm_payout(db, transaction, cycle, success=success)
+
+
 def _refresh_cycle_status(db: Session, cycle: Cycle) -> None:
     if all(c.status == ContributionStatus.PAID for c in cycle.contributions):
         cycle.status = CycleStatus.FUNDED

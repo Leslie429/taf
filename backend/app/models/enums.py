@@ -60,3 +60,17 @@ class AccountKind(StrEnum):
 class EntryDirection(StrEnum):
     DEBIT = "debit"
     CREDIT = "credit"
+
+
+class DivergenceKind(StrEnum):
+    """Ce qu'un rapprochement peut trouver entre le grand livre et l'opérateur."""
+
+    # Nous l'avons laissée en cours, l'opérateur a tranché depuis.
+    UNCONFIRMED = "unconfirmed"
+    # Nous la comptons réussie, l'opérateur dit le contraire. Le cas grave :
+    # de l'argent figure au grand livre sans exister chez l'opérateur.
+    DISPUTED_SUCCESS = "disputed_success"
+    # L'opérateur répond mais ignore la référence.
+    UNKNOWN_AT_OPERATOR = "unknown_at_operator"
+    # L'opérateur n'a rien tranché, ou n'a pas répondu.
+    OPERATOR_SILENT = "operator_silent"

@@ -149,14 +149,7 @@ async def momo_webhook(request: Request, db: DbSession, momo: MoMo) -> dict[str,
             return {"status": "unverified"}
         success = tranche
 
-    if transaction.type == TransactionType.CONTRIBUTION:
-        tontine.confirm_contribution(db, transaction, success=success)
-    elif transaction.type == TransactionType.PAYOUT:
-        cycle = db.execute(
-            select(Cycle).where(Cycle.id == UUID(transaction.idempotency_key.split(":")[1]))
-        ).scalar_one_or_none()
-        if cycle is not None:
-            tontine.confirm_payout(db, transaction, cycle, success=success)
+    tontine.appliquer_verdict(db, transaction, success=success)
 
     event.processed = True
     db.commit()

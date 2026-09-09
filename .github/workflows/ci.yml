@@ -53,6 +53,20 @@ jobs:
       - name: Tests
         run: pytest
 
+      # Les tests créent leur schéma par metadata.create_all : sans cette
+      # étape, une migration pourrait diverger des modèles sans que rien ne le
+      # signale. On la joue sur une base neuve, puis on vérifie qu'Alembic ne
+      # trouve plus aucune différence avec les modèles.
+      - name: Migrations
+        env:
+          DATABASE_URL: postgresql+psycopg://tontine:tontine@localhost:5432/tontine_migrations
+        run: |
+          PGPASSWORD=tontine createdb -h localhost -U tontine tontine_migrations
+          alembic upgrade head
+          alembic downgrade base
+          alembic upgrade head
+          alembic check
+
   frontend:
     runs-on: ubuntu-latest
     defaults:

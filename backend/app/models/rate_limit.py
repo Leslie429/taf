@@ -7,7 +7,7 @@ tomber sur l'autre.
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, PrimaryKeyConstraint, String
+from sqlalchemy import BigInteger, DateTime, Index, PrimaryKeyConstraint, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -15,7 +15,12 @@ from app.db.base import Base
 
 class RateLimitCounter(Base):
     __tablename__ = "rate_limit_counters"
-    __table_args__ = (PrimaryKeyConstraint("bucket", "window_start", name="pk_rate_limit"),)
+    __table_args__ = (
+        PrimaryKeyConstraint("bucket", "window_start", name="pk_rate_limit"),
+        # Nommé explicitement : le nom vit en base, il ne doit pas dépendre
+        # de la convention par défaut de SQLAlchemy.
+        Index("ix_rate_limit_window", "window_start"),
+    )
 
     # Ce qui est compté : « login:ip:1.2.3.4 », « login:phone:+229... ».
     bucket: Mapped[str] = mapped_column(String(160))

@@ -14,6 +14,9 @@ class User(Base, UUIDMixin, TimestampMixin):
     full_name: Mapped[str] = mapped_column(String(120))
     hashed_password: Mapped[str] = mapped_column(String(255))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Membre de l'équipe de la plateforme, à ne pas confondre avec
+    # `Membership.is_admin`, qui n'administre qu'une tontine.
+    is_staff: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Tout jeton émis avant cette date est refusé. Une déconnexion la fixe à
     # l'instant présent, ce qui révoque d'un coup l'accès et le rafraîchissement

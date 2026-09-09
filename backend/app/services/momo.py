@@ -171,7 +171,15 @@ class MtnMoMoClient:
             f"/{product}/v1_0/{path}/{reference}",
             headers=self._headers(product, reference),
         )
-        return dict(response.json())
+        # Une référence que l'opérateur ignore répond 404, souvent sans JSON :
+        # c'est une information, pas une panne, et l'appelant doit pouvoir la
+        # distinguer d'un opérateur injoignable.
+        if response.status_code >= 400:
+            return {}
+        try:
+            return dict(response.json())
+        except ValueError:
+            return {}
 
 
 class FakeMoMoClient:
@@ -251,24 +259,44 @@ class ProductRoutedClient:
         return self._pour(product).status(reference=reference, product=product)
 
 
-def verdict(client: MoMoClient, *, reference: uuid.UUID, product: str) -> bool | None:
-    """Demande à l'opérateur ce qu'il est advenu d'une référence.
+@dataclass(frozen=True)
+class EtatOperateur:
+    """Ce que l'opérateur dit d'une référence, et s'il a seulement répondu."""
 
-    Renvoie `None` quand il n'y a rien à trancher : opérateur injoignable, ou
-    transaction encore en cours chez lui. L'appelant doit alors ne rien changer
-    et laisser l'opérateur rappeler.
-    """
-    try:
-        etat = client.status(reference=reference, product=product)
-    except (MoMoError, httpx.HTTPError):
+    joignable: bool
+    statut: str
+
+    @property
+    def tranche(self) -> bool | None:
+        """Le verdict, ou None si l'opérateur n'a rien tranché."""
+        if self.statut in {"SUCCESSFUL", "SUCCESS"}:
+            return True
+        if self.statut in {"FAILED", "REJECTED"}:
+            return False
         return None
 
-    statut = str(etat.get("status", "")).upper()
-    if statut in {"SUCCESSFUL", "SUCCESS"}:
-        return True
-    if statut in {"FAILED", "REJECTED"}:
-        return False
-    return None
+    @property
+    def inconnue(self) -> bool:
+        """L'opérateur répond, mais ignore cette référence.
+
+        C'est le cas le plus inquiétant d'un rapprochement : une transaction
+        que nous croyons partie et dont l'opérateur n'a aucune trace.
+        """
+        return self.joignable and not self.statut
+
+
+def etat(client: MoMoClient, *, reference: uuid.UUID, product: str) -> EtatOperateur:
+    """Interroge l'opérateur sur une référence, sans jamais lever."""
+    try:
+        reponse = client.status(reference=reference, product=product)
+    except (MoMoError, httpx.HTTPError, ValueError):
+        return EtatOperateur(joignable=False, statut="")
+    return EtatOperateur(joignable=True, statut=str(reponse.get("status", "")).upper())
+
+
+def verdict(client: MoMoClient, *, reference: uuid.UUID, product: str) -> bool | None:
+    """Le verdict de l'opérateur, ou None s'il n'a rien tranché."""
+    return etat(client, reference=reference, product=product).tranche
 
 
 def verify_signature(raw_body: bytes, received_signature: str) -> bool:
