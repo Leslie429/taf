@@ -125,8 +125,9 @@ def initiate_contribution(
     transaction = ledger.post_transaction(
         db,
         # Une cotisation donnée ne peut être encaissée qu'une fois, quel que soit
-        # le nombre de fois où le membre appuie sur le bouton.
-        idempotency_key=f"contribution:{contribution.id}",
+        # le nombre de fois où le membre appuie sur le bouton — mais un refus de
+        # l'opérateur doit pouvoir être retenté.
+        idempotency_key=ledger.next_attempt_key(db, f"contribution:{contribution.id}"),
         tx_type=TransactionType.CONTRIBUTION,
         amount_minor=contribution.amount_minor,
         postings=[
@@ -229,7 +230,7 @@ def pay_out_cycle(db: Session, cycle: Cycle, momo: MoMoClient) -> Transaction:
 
     transaction = ledger.post_transaction(
         db,
-        idempotency_key=f"payout:{cycle.id}",
+        idempotency_key=ledger.next_attempt_key(db, f"payout:{cycle.id}"),
         tx_type=TransactionType.PAYOUT,
         amount_minor=amount,
         postings=[

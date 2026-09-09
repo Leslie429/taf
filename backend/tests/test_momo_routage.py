@@ -86,3 +86,18 @@ def test_le_statut_suit_le_produit_demande():
     reference = uuid.uuid4()
     assert client.status(reference=reference, product="collection")["status"] == "SUCCESSFUL"
     assert client.status(reference=reference, product="disbursement")["status"] == "FAILED"
+
+
+def test_le_sandbox_recoit_des_euros(monkeypatch):
+    # Le sandbox MTN refuse le XOF par un 500 INVALID_CURRENCY.
+    monkeypatch.setattr(
+        "app.services.momo.settings", Settings(momo_target_environment="sandbox", currency="XOF")
+    )
+    assert MtnMoMoClient()._devise == "EUR"
+
+
+def test_la_production_recoit_la_devise_locale(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.momo.settings", Settings(momo_target_environment="mtnbenin", currency="XOF")
+    )
+    assert MtnMoMoClient()._devise == "XOF"

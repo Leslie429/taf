@@ -1,7 +1,7 @@
 from operator import attrgetter
 
 from fastapi import APIRouter, Query
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from app.api.deps import CurrentUser, DbSession
 from app.models.ledger import Transaction
@@ -52,8 +52,10 @@ def my_transactions(
     ]
 
     # Ce que l'utilisateur a reçu. Le versement n'a pas de clé étrangère vers le
-    # cycle : on reconstruit sa clé d'idempotence plutôt que de la découper, ce
-    # qui reste juste même si le format évolue d'un seul côté.
+    # cycle : on retrouve ses transactions par le préfixe de leur clé
+    # d'idempotence. Le préfixe désigne l'opération, le suffixe le rang de
+    # l'essai — un versement refusé puis retenté donne donc deux lignes, ce qui
+    # est la lecture attendue d'un historique.
     cycles_beneficiaires = db.execute(
         select(Cycle, TontineGroup)
         .join(TontineGroup, TontineGroup.id == Cycle.group_id)
@@ -63,10 +65,13 @@ def my_transactions(
 
     entrees: list[HistoryItem] = []
     if par_cle:
+        essais = or_(
+            *(Transaction.idempotency_key.like(f"{prefixe}:%") for prefixe in par_cle)
+        )
         for transaction in db.execute(
-            select(Transaction).where(Transaction.idempotency_key.in_(par_cle))
+            select(Transaction).where(essais)
         ).scalars().all():
-            cycle, group = par_cle[transaction.idempotency_key]
+            cycle, group = par_cle[transaction.idempotency_key.rsplit(":", 1)[0]]
             entrees.append(
                 HistoryItem(
                     id=transaction.id,

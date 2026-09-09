@@ -100,6 +100,33 @@ def balance_minor(db: Session, account_id: UUID) -> int:
     return int(db.execute(stmt).scalar_one())
 
 
+def next_attempt_key(db: Session, prefix: str) -> str:
+    """La clé d'idempotence du prochain essai pour ce préfixe.
+
+    Un refus de l'opérateur est définitif pour *cette* transaction, pas pour
+    l'opération : une coupure réseau ou une devise refusée doivent pouvoir être
+    retentées. Mais garder une clé figée l'interdit — la clé est déjà prise par
+    l'échec, et toute nouvelle demande retombe dessus.
+
+    La clé porte donc le rang de l'essai. L'idempotence reste entière à
+    l'intérieur d'un essai — deux clics sur « Payer » retombent sur la même
+    transaction — tout en autorisant un essai suivant après un échec, et lui
+    seul : tant que le dernier essai est en cours ou réussi, on le renvoie.
+    """
+    essais = list(
+        db.execute(
+            select(Transaction)
+            .where(Transaction.idempotency_key.like(f"{prefix}:%"))
+            .order_by(Transaction.created_at)
+        ).scalars().all()
+    )
+    if not essais:
+        return f"{prefix}:1"
+    if essais[-1].status == TransactionStatus.FAILED:
+        return f"{prefix}:{len(essais) + 1}"
+    return str(essais[-1].idempotency_key)
+
+
 def post_transaction(
     db: Session,
     *,

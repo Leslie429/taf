@@ -139,3 +139,53 @@ def test_contrepassation_ramene_le_solde_a_zero(db: Session, accounts):
 
     assert tx.status == TransactionStatus.REVERSED
     assert ledger.balance_minor(db, pot.id) == 0
+
+
+def _essai(db: Session, accounts, cle: str, statut: TransactionStatus):
+    pot, clearing = accounts
+    tx = ledger.post_transaction(
+        db,
+        idempotency_key=cle,
+        tx_type=TransactionType.PAYOUT,
+        amount_minor=1000,
+        postings=_balanced(pot.id, clearing.id, 1000),
+    )
+    if statut != TransactionStatus.PENDING:
+        ledger.transition(db, tx, TransactionStatus.PROCESSING)
+        if statut != TransactionStatus.PROCESSING:
+            ledger.transition(db, tx, statut)
+    db.flush()
+    return tx
+
+
+def test_le_premier_essai_porte_le_rang_un(db: Session):
+    assert ledger.next_attempt_key(db, "payout:abc") == "payout:abc:1"
+
+
+def test_un_essai_en_cours_est_renvoye_tel_quel(db: Session, accounts):
+    # Deux clics sur « Verser » ne doivent pas produire deux versements.
+    _essai(db, accounts, "payout:abc:1", TransactionStatus.PROCESSING)
+    assert ledger.next_attempt_key(db, "payout:abc") == "payout:abc:1"
+
+
+def test_un_essai_reussi_est_renvoye_tel_quel(db: Session, accounts):
+    _essai(db, accounts, "payout:abc:1", TransactionStatus.SUCCESS)
+    assert ledger.next_attempt_key(db, "payout:abc") == "payout:abc:1"
+
+
+def test_un_echec_ouvre_un_essai_suivant(db: Session, accounts):
+    # Un refus de l'opérateur ne doit pas figer l'opération pour toujours.
+    _essai(db, accounts, "payout:abc:1", TransactionStatus.FAILED)
+    assert ledger.next_attempt_key(db, "payout:abc") == "payout:abc:2"
+
+
+def test_les_echecs_saccumulent_sans_se_marcher_dessus(db: Session, accounts):
+    _essai(db, accounts, "payout:abc:1", TransactionStatus.FAILED)
+    _essai(db, accounts, "payout:abc:2", TransactionStatus.FAILED)
+    assert ledger.next_attempt_key(db, "payout:abc") == "payout:abc:3"
+
+
+def test_les_essais_dune_autre_operation_ne_comptent_pas(db: Session, accounts):
+    # Le préfixe doit isoler : un cycle voisin ne décale pas nos rangs.
+    _essai(db, accounts, "payout:xyz:1", TransactionStatus.FAILED)
+    assert ledger.next_attempt_key(db, "payout:abc") == "payout:abc:1"

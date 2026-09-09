@@ -31,7 +31,7 @@ quelques secondes.
 | Fiabilité des paiements | Clé d'idempotence en base, machine à états des transactions, rejeu inoffensif |
 | Intégration opérateur | API MTN MoMo (Collection et Disbursement) sur sandbox, avec double de test |
 | Sécurité | JWT accès/rafraîchissement, webhooks signés HMAC-SHA256 comparés en temps constant |
-| Qualité | 58 tests Pytest (90 % de couverture) et 10 tests Vitest, lint Ruff, typage strict `mypy` et TypeScript, CI GitHub Actions |
+| Qualité | 66 tests Pytest (91 % de couverture) et 10 tests Vitest, lint Ruff, typage strict `mypy` et TypeScript, CI GitHub Actions |
 | Exploitation | Docker Compose, migrations Alembic versionnées, healthchecks |
 
 ## Pile technique
@@ -80,7 +80,7 @@ npm run dev
 ```bash
 # Back-end — nécessite une base tontine_test
 createdb tontine_test
-cd backend && pytest              # 58 tests, 90 % de couverture
+cd backend && pytest              # 66 tests, 91 % de couverture
 
 # Front-end
 cd frontend && npm run test       # 10 tests
@@ -125,8 +125,15 @@ Un utilisateur sur un réseau instable appuiera deux fois sur « Payer ». Un
 opérateur rejouera son callback. Les deux cas doivent rester sans effet.
 
 - Chaque transaction porte une `idempotency_key` sous contrainte d'unicité —
-  `contribution:<id>` pour une cotisation, `payout:<cycle_id>` pour un versement.
-  Une seconde tentative retrouve la transaction d'origine au lieu d'en créer une.
+  `contribution:<id>:<essai>` pour une cotisation, `payout:<cycle_id>:<essai>`
+  pour un versement. Une seconde tentative retrouve la transaction d'origine au
+  lieu d'en créer une.
+- Le rang d'essai est ce qui réconcilie l'idempotence avec le droit de
+  réessayer. Sans lui, un refus de l'opérateur — une coupure réseau, une devise
+  rejetée — figerait l'opération pour toujours : la clé serait prise par
+  l'échec, et toute nouvelle demande retomberait dessus. `next_attempt_key`
+  n'ouvre un rang suivant que si le dernier essai a échoué ; tant qu'un essai
+  est en cours ou réussi, il est renvoyé tel quel.
 - Deux requêtes concurrentes sont arbitrées par la base : celle qui perd la
   course sur la contrainte d'unicité récupère la transaction gagnante.
 - L'identifiant de la transaction sert de `X-Reference-Id` à l'appel MTN, ce qui

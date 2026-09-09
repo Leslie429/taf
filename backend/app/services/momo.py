@@ -67,6 +67,22 @@ class MtnMoMoClient:
         self._tokens[product] = token
         return token
 
+    @property
+    def _devise(self) -> str:
+        """La devise à déclarer à l'opérateur.
+
+        Le sandbox MTN ne connaît que l'EUR : un transfert en XOF y est refusé
+        par un 500 `INVALID_CURRENCY`. La production, elle, attend bien la
+        devise locale.
+
+        La substitution s'arrête à la charge utile envoyée à MTN. Le grand
+        livre reste en XOF, montants en unité mineure : une bizarrerie
+        d'environnement de test n'a pas à se lire dans la comptabilité.
+        """
+        if settings.momo_target_environment == "sandbox":
+            return "EUR"
+        return settings.currency
+
     def _headers(self, product: str, reference: uuid.UUID) -> dict[str, str]:
         return {
             "Authorization": f"Bearer {self._token(product)}",
@@ -81,7 +97,7 @@ class MtnMoMoClient:
     ) -> MoMoResult:
         payload = {
             "amount": str(amount_minor),
-            "currency": settings.currency,
+            "currency": self._devise,
             "externalId": str(reference),
             "payer": {"partyIdType": "MSISDN", "partyId": payer_phone.lstrip("+")},
             "payerMessage": note[:160],
@@ -104,7 +120,7 @@ class MtnMoMoClient:
     ) -> MoMoResult:
         payload = {
             "amount": str(amount_minor),
-            "currency": settings.currency,
+            "currency": self._devise,
             "externalId": str(reference),
             "payee": {"partyIdType": "MSISDN", "partyId": payee_phone.lstrip("+")},
             "payerMessage": note[:160],
