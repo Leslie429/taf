@@ -1,15 +1,21 @@
-# Déploiement de l'API sur Fly.io.
-#   fly launch --no-deploy --copy-config     (depuis backend/)
-#   fly postgres create --name tontine-db
-#   fly postgres attach tontine-db
-#   fly secrets set JWT_SECRET=... MOMO_CALLBACK_SECRET=... CORS_ORIGINS=https://...
-#   fly deploy
+# Déploiement de l'API sur Fly.io. La base vit chez Neon : voir le README.
+#   fly apps create tontine-api
+#   fly secrets set --stage -a tontine-api DATABASE_URL=... JWT_SECRET=... \
+#     MOMO_CALLBACK_SECRET=... CORS_ORIGINS=https://tontine-web.fly.dev
+#   fly deploy --remote-only
 
 app = "tontine-api"
 primary_region = "cdg"
 
 [build]
   dockerfile = "Dockerfile"
+
+[deploy]
+  # Fly exécute cette commande une seule fois, dans une machine éphémère, avant
+  # de basculer le trafic. C'est ce qui garantit qu'une seule migration tourne :
+  # dans le CMD, chaque machine lancerait la sienne. Un échec ici annule le
+  # déploiement et laisse la version précédente en place.
+  release_command = "alembic upgrade head"
 
 [env]
   ENVIRONMENT = "production"
