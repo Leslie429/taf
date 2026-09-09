@@ -14,6 +14,7 @@ from app.services.momo import (
     MtnMoMoClient,
     ProductRoutedClient,
 )
+from app.services.operateurs import Operateurs, analyser_prefixes
 
 bearer = HTTPBearer(auto_error=False)
 
@@ -68,4 +69,23 @@ def get_momo_client() -> MoMoClient:
     return ProductRoutedClient(collection=collection, disbursement=disbursement)
 
 
-MoMo = Annotated[MoMoClient, Depends(get_momo_client)]
+# Moov Africa n'a pas de client : je n'ai pas lu son API, et fabriquer des
+# points d'entrée plausibles produirait du code qui a l'air de marcher. La
+# couture est ici — enregistrer un vrai client sous ce code suffira, tout le
+# reste du chemin est déjà en place et éprouvé.
+CLIENTS_PAR_OPERATEUR = {
+    "mtn_momo": get_momo_client,
+    "moov": FakeMoMoClient,
+}
+
+
+def get_operateurs() -> Operateurs:
+    """Les clients disponibles et la table qui dit lequel dessert quel numéro."""
+    return Operateurs(
+        clients={code: fabrique() for code, fabrique in CLIENTS_PAR_OPERATEUR.items()},
+        prefixes=analyser_prefixes(settings.operator_prefixes),
+        defaut=settings.operator_default,
+    )
+
+
+Reseau = Annotated[Operateurs, Depends(get_operateurs)]

@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, status
 
-from app.api.deps import CurrentUser, DbSession, MoMo
+from app.api.deps import CurrentUser, DbSession, Reseau
 from app.models.reconciliation import ReconciliationRun
 from app.models.user import User
 from app.schemas.reconciliation import ReconciliationOut
@@ -29,11 +29,11 @@ def dernier(user: CurrentUser, db: DbSession) -> ReconciliationRun:
 
 
 @router.post("/reconciliation", response_model=ReconciliationOut, status_code=201)
-def lancer(user: CurrentUser, db: DbSession, momo: MoMo) -> ReconciliationRun:
+def lancer(user: CurrentUser, db: DbSession, reseau: Reseau) -> ReconciliationRun:
     """Déclenche un rapprochement à la demande.
 
     La tâche quotidienne fait la même chose ; cette route sert à la provoquer
     sans attendre, pour vérifier un écart signalé.
     """
     _exiger_equipe(user)
-    return rapprochement.rapprocher(db, momo)
+    return rapprochement.rapprocher(db, reseau)

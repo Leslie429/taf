@@ -27,7 +27,7 @@ from app.models.ledger import Transaction
 from app.models.tontine import Contribution, Cycle, Membership, TontineGroup
 from app.models.user import User
 from app.services import ledger
-from app.services.momo import MoMoClient
+from app.services.operateurs import Operateurs
 
 # Conservé pour le journal des callbacks, qui identifie l'opérateur et non le
 # client : c'est bien MTN qui rappelle, jamais le double.
@@ -103,7 +103,7 @@ def initiate_contribution(
     *,
     contribution: Contribution,
     payer: User,
-    momo: MoMoClient,
+    reseau: Operateurs,
 ) -> Transaction:
     """Démarre l'encaissement d'une cotisation par Mobile Money.
 
@@ -114,6 +114,9 @@ def initiate_contribution(
     if contribution.status == ContributionStatus.PAID:
         raise TontineError("Cette cotisation est déjà réglée.")
 
+    # Le membre paie depuis son propre portefeuille : c'est son numéro qui
+    # désigne l'opérateur à appeler, pas un réglage global.
+    momo = reseau.pour_numero(payer.phone)
     cycle = contribution.cycle
     group = cycle.group
 
@@ -224,7 +227,7 @@ def _refresh_cycle_status(db: Session, cycle: Cycle) -> None:
     db.flush()
 
 
-def pay_out_cycle(db: Session, cycle: Cycle, momo: MoMoClient) -> Transaction:
+def pay_out_cycle(db: Session, cycle: Cycle, reseau: Operateurs) -> Transaction:
     """Verse la cagnotte au bénéficiaire du cycle."""
     if cycle.status != CycleStatus.FUNDED:
         raise TontineError("Le cycle n'est pas intégralement financé.")
@@ -237,6 +240,9 @@ def pay_out_cycle(db: Session, cycle: Cycle, momo: MoMoClient) -> Transaction:
     if beneficiary is None:
         raise TontineError("Utilisateur bénéficiaire introuvable.")
 
+    # La cagnotte part chez l'opérateur du bénéficiaire, qui n'est pas
+    # forcément celui des cotisants.
+    momo = reseau.pour_numero(beneficiary.phone)
     amount = sum(c.amount_minor for c in cycle.contributions)
 
     pot = ledger.get_or_create_account(

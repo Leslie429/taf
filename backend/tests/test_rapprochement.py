@@ -24,7 +24,7 @@ from app.services.momo import PROVIDER_DOUBLE, PROVIDER_MTN, FakeMoMoClient
 
 
 @pytest.fixture
-def cotisation_en_cours(db: Session, make_user, momo: FakeMoMoClient):
+def cotisation_en_cours(db: Session, make_user, reseau):
     """Une cotisation partie chez l'opérateur, sans verdict reçu."""
     membres = [make_user(f"M{index}") for index in range(2)]
     groupe = TontineGroup(
@@ -46,7 +46,7 @@ def cotisation_en_cours(db: Session, make_user, momo: FakeMoMoClient):
     adhesion = db.get(Membership, contribution.membership_id)
     payeur = next(m for m in membres if m.id == adhesion.user_id)
     transaction = tontine.initiate_contribution(
-        db, contribution=contribution, payer=payeur, momo=momo
+        db, contribution=contribution, payer=payeur, reseau=reseau
     )
     # Le double répond aux interrogations de statut, mais la transaction est
     # attribuée à l'opérateur réel : c'est lui qu'un rapprochement confronte.
@@ -69,12 +69,12 @@ def _dire(momo: FakeMoMoClient, statut: str) -> None:
     momo.status = lambda **_: {"status": statut}  # type: ignore[method-assign]
 
 
-def test_un_callback_perdu_est_rattrape(db: Session, momo, cotisation_en_cours):
+def test_un_callback_perdu_est_rattrape(db: Session, momo, reseau, cotisation_en_cours):
     contribution, transaction = cotisation_en_cours
     _vieillir(db, transaction)
     _dire(momo, "SUCCESSFUL")
 
-    run = rapprochement.rapprocher(db, momo)
+    run = rapprochement.rapprocher(db, reseau)
 
     ecart = db.execute(select(Divergence).where(Divergence.run_id == run.id)).scalar_one()
     assert ecart.kind == DivergenceKind.UNCONFIRMED
@@ -83,12 +83,12 @@ def test_un_callback_perdu_est_rattrape(db: Session, momo, cotisation_en_cours):
     assert contribution.status == ContributionStatus.PAID
 
 
-def test_un_echec_tardif_est_rattrape_aussi(db: Session, momo, cotisation_en_cours):
+def test_un_echec_tardif_est_rattrape_aussi(db: Session, momo, reseau, cotisation_en_cours):
     contribution, transaction = cotisation_en_cours
     _vieillir(db, transaction)
     _dire(momo, "FAILED")
 
-    rapprochement.rapprocher(db, momo)
+    rapprochement.rapprocher(db, reseau)
 
     db.refresh(transaction)
     assert transaction.status == TransactionStatus.FAILED
@@ -98,12 +98,12 @@ def test_un_echec_tardif_est_rattrape_aussi(db: Session, momo, cotisation_en_cou
     assert contribution.status == ContributionStatus.DUE
 
 
-def test_un_operateur_muet_ne_fait_rien_changer(db: Session, momo, cotisation_en_cours):
+def test_un_operateur_muet_ne_fait_rien_changer(db: Session, momo, reseau, cotisation_en_cours):
     contribution, transaction = cotisation_en_cours
     _vieillir(db, transaction)
     _dire(momo, "PENDING")
 
-    run = rapprochement.rapprocher(db, momo)
+    run = rapprochement.rapprocher(db, reseau)
 
     ecart = db.execute(select(Divergence).where(Divergence.run_id == run.id)).scalar_one()
     assert ecart.kind == DivergenceKind.OPERATOR_SILENT
@@ -113,15 +113,14 @@ def test_un_operateur_muet_ne_fait_rien_changer(db: Session, momo, cotisation_en
 
 
 def test_une_reference_inconnue_de_loperateur_est_signalee(
-    db: Session, momo, cotisation_en_cours
-):
+    db: Session, momo, cotisation_en_cours, reseau):
     # Le cas où nous croyons avoir envoyé quelque chose dont l'opérateur n'a
     # aucune trace.
     _, transaction = cotisation_en_cours
     _vieillir(db, transaction)
     _dire(momo, "")
 
-    run = rapprochement.rapprocher(db, momo)
+    run = rapprochement.rapprocher(db, reseau)
 
     ecart = db.execute(select(Divergence).where(Divergence.run_id == run.id)).scalar_one()
     assert ecart.kind == DivergenceKind.UNKNOWN_AT_OPERATOR
@@ -129,8 +128,7 @@ def test_une_reference_inconnue_de_loperateur_est_signalee(
 
 
 def test_un_succes_dementi_nest_jamais_corrige_en_silence(
-    db: Session, momo, cotisation_en_cours
-):
+    db: Session, momo, cotisation_en_cours, reseau):
     # Le cas grave : de l'argent au grand livre sans contrepartie opérateur.
     # Une contrepassation est une décision, pas un effet de bord.
     _, transaction = cotisation_en_cours
@@ -138,7 +136,7 @@ def test_un_succes_dementi_nest_jamais_corrige_en_silence(
     db.flush()
     _dire(momo, "FAILED")
 
-    run = rapprochement.rapprocher(db, momo)
+    run = rapprochement.rapprocher(db, reseau)
 
     ecart = db.execute(select(Divergence).where(Divergence.run_id == run.id)).scalar_one()
     assert ecart.kind == DivergenceKind.DISPUTED_SUCCESS
@@ -147,23 +145,25 @@ def test_un_succes_dementi_nest_jamais_corrige_en_silence(
     assert transaction.status == TransactionStatus.SUCCESS
 
 
-def test_une_transaction_recente_echappe_au_rapprochement(db: Session, momo, cotisation_en_cours):
+def test_une_transaction_recente_echappe_au_rapprochement(
+    db: Session, momo, reseau, cotisation_en_cours
+):
     # L'opérateur a le droit de mettre quelques minutes à trancher.
     _, transaction = cotisation_en_cours
     _dire(momo, "SUCCESSFUL")
 
-    run = rapprochement.rapprocher(db, momo)
+    run = rapprochement.rapprocher(db, reseau)
 
     assert run.examined == 0
     assert db.execute(select(Divergence).where(Divergence.run_id == run.id)).all() == []
 
 
-def test_le_mode_constat_ne_touche_a_rien(db: Session, momo, cotisation_en_cours):
+def test_le_mode_constat_ne_touche_a_rien(db: Session, momo, reseau, cotisation_en_cours):
     contribution, transaction = cotisation_en_cours
     _vieillir(db, transaction)
     _dire(momo, "SUCCESSFUL")
 
-    run = rapprochement.rapprocher(db, momo, appliquer=False)
+    run = rapprochement.rapprocher(db, reseau, appliquer=False)
 
     ecart = db.execute(select(Divergence).where(Divergence.run_id == run.id)).scalar_one()
     assert ecart.kind == DivergenceKind.UNCONFIRMED
@@ -172,13 +172,13 @@ def test_le_mode_constat_ne_touche_a_rien(db: Session, momo, cotisation_en_cours
     assert contribution.status == ContributionStatus.PROCESSING
 
 
-def test_un_ecart_garde_les_deux_etats_du_moment(db: Session, momo, cotisation_en_cours):
+def test_un_ecart_garde_les_deux_etats_du_moment(db: Session, momo, reseau, cotisation_en_cours):
     # Un écart se relit des mois plus tard, quand les statuts ont bougé.
     _, transaction = cotisation_en_cours
     _vieillir(db, transaction)
     _dire(momo, "SUCCESSFUL")
 
-    run = rapprochement.rapprocher(db, momo)
+    run = rapprochement.rapprocher(db, reseau)
 
     ecart = db.execute(select(Divergence).where(Divergence.run_id == run.id)).scalar_one()
     assert ecart.local_status == TransactionStatus.PROCESSING
@@ -186,12 +186,12 @@ def test_un_ecart_garde_les_deux_etats_du_moment(db: Session, momo, cotisation_e
     assert ecart.transaction_id == transaction.id
 
 
-def test_le_journal_retient_la_serie(db: Session, momo, cotisation_en_cours):
+def test_le_journal_retient_la_serie(db: Session, momo, reseau, cotisation_en_cours):
     _, transaction = cotisation_en_cours
     _vieillir(db, transaction)
     _dire(momo, "PENDING")
 
-    run = rapprochement.rapprocher(db, momo)
+    run = rapprochement.rapprocher(db, reseau)
 
     assert rapprochement.dernier_rapprochement(db).id == run.id
     assert len(rapprochement.ecarts_non_resolus(db, run.id)) == 1
@@ -206,12 +206,11 @@ def test_la_consultation_est_refusee_au_simple_membre(client, make_user, auth_as
 
 
 def test_lequipe_consulte_le_dernier_rapprochement(
-    client, db: Session, make_user, auth_as, momo, cotisation_en_cours
-):
+    client, db: Session, make_user, auth_as, momo, cotisation_en_cours, reseau):
     _, transaction = cotisation_en_cours
     _vieillir(db, transaction)
     _dire(momo, "SUCCESSFUL")
-    run = rapprochement.rapprocher(db, momo)
+    run = rapprochement.rapprocher(db, reseau)
 
     membre = make_user("Equipe")
     membre.is_staff = True
@@ -233,8 +232,7 @@ def test_sans_rapprochement_la_consultation_repond_404(client, db: Session, make
 
 
 def test_une_transaction_du_double_nest_pas_confrontee(
-    db: Session, momo, cotisation_en_cours
-):
+    db: Session, momo, cotisation_en_cours, reseau):
     # Le double n'a pas de relevé. La confronter au vrai opérateur la ferait
     # passer pour un succès sans contrepartie — c'est-à-dire pour une fraude.
     _, transaction = cotisation_en_cours
@@ -242,7 +240,7 @@ def test_une_transaction_du_double_nest_pas_confrontee(
     _vieillir(db, transaction)
     _dire(momo, "SUCCESSFUL")
 
-    run = rapprochement.rapprocher(db, momo)
+    run = rapprochement.rapprocher(db, reseau)
 
     assert run.examined == 0
     assert db.execute(select(Divergence).where(Divergence.run_id == run.id)).all() == []

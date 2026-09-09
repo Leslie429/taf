@@ -346,6 +346,42 @@ choisit **produit par produit**, dans
 MTN délivre une clé d'abonnement **par produit** : souscrire à *Collection* ne
 donne aucun droit sur *Disbursement*. Confondre les deux vaut un 401.
 
+### Plusieurs opérateurs
+
+MTN ne couvre pas tout le marché béninois. Une tontine réunit des membres chez
+plusieurs opérateurs, et un versement doit partir chez celui du bénéficiaire —
+qui n'est pas forcément celui des cotisants. L'opérateur ne se choisit donc pas
+au démarrage mais **à chaque paiement, d'après le numéro concerné**
+([`app/services/operateurs.py`](backend/app/services/operateurs.py)).
+
+Trois décisions structurent ce choix.
+
+**La table des préfixes est une configuration, jamais une constante du code.**
+Les plages de numérotation sont attribuées par le régulateur et changent ; les
+figer dans les sources garantit qu'elles seront fausses un jour sans que rien
+ne le signale. Elles se règlent par `OPERATOR_PREFIXES`, au format
+`mtn_momo:22951,22961;moov:22994`. Le préfixe le plus long l'emporte, les
+plages se chevauchant en longueur.
+
+**La résolution par préfixe est une approximation, et c'est assumé.** La
+portabilité permet à un abonné de garder son numéro en changeant d'opérateur :
+le préfixe donne alors le mauvais résultat. C'est acceptable parce que l'erreur
+est visible et rattrapable — l'opérateur refuse l'appel, la transaction échoue,
+et le rang d'essai permet de la relancer. Un service de production interrogerait
+un annuaire de portabilité.
+
+**Le rapprochement repart de l'opérateur consigné**, pas du numéro : une
+transaction sait qui l'a traitée, et c'est celui-là qu'il faut interroger.
+
+#### Moov Africa
+
+`moov` est enregistré comme opérateur et son client est **le double de test**.
+Ce n'est pas un oubli : je n'ai pas la documentation de l'API Moov, et
+fabriquer des points d'entrée plausibles produirait du code qui a l'air de
+marcher sans marcher. La couture est dans
+[`app/api/deps.py`](backend/app/api/deps.py) — enregistrer un vrai client sous
+ce code suffit, tout le reste du chemin est en place et éprouvé.
+
 ### Ce que le sandbox MTN autorise aujourd'hui
 
 *Disbursement* se souscrit normalement. **Le produit *Collection* est

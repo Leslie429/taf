@@ -9,13 +9,12 @@ from sqlalchemy.orm import Session
 from app.models.enums import Frequency
 from app.models.tontine import Membership, TontineGroup
 from app.services import tontine
-from app.services.momo import FakeMoMoClient
 
 API = "/api/v1"
 
 
 @pytest.fixture
-def tontine_reglee(db: Session, make_user, momo: FakeMoMoClient):
+def tontine_reglee(db: Session, make_user, reseau):
     """Une tontine à deux membres dont le premier tour est réglé et versé."""
     beneficiaire = make_user("Bénéficiaire")
     autre = make_user("Autre")
@@ -41,11 +40,11 @@ def tontine_reglee(db: Session, make_user, momo: FakeMoMoClient):
         membership = db.get(Membership, contribution.membership_id)
         payeur = beneficiaire if membership.user_id == beneficiaire.id else autre
         transaction = tontine.initiate_contribution(
-            db, contribution=contribution, payer=payeur, momo=momo
+            db, contribution=contribution, payer=payeur, reseau=reseau
         )
         tontine.confirm_contribution(db, transaction, success=True)
 
-    payout = tontine.pay_out_cycle(db, cycle, momo)
+    payout = tontine.pay_out_cycle(db, cycle, reseau)
     tontine.confirm_payout(db, payout, cycle, success=True)
     db.flush()
 

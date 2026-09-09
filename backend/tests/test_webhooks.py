@@ -26,7 +26,7 @@ def _signed(payload: dict) -> tuple[str, dict[str, str]]:
     return body, {"X-Callback-Signature": signature, "Content-Type": "application/json"}
 
 
-def _contribution_en_cours(db: Session, make_user, momo: FakeMoMoClient):
+def _contribution_en_cours(db: Session, make_user, reseau):
     membres = [make_user(f"M{i}") for i in range(2)]
     group = TontineGroup(
         name="Webhook",
@@ -46,7 +46,7 @@ def _contribution_en_cours(db: Session, make_user, momo: FakeMoMoClient):
     contribution = cycles[0].contributions[0]
     membership = db.get(Membership, contribution.membership_id)
     payeur = next(m for m in membres if m.id == membership.user_id)
-    tx = tontine.initiate_contribution(db, contribution=contribution, payer=payeur, momo=momo)
+    tx = tontine.initiate_contribution(db, contribution=contribution, payer=payeur, reseau=reseau)
     db.flush()
     return contribution, tx
 
@@ -61,9 +61,9 @@ def test_signature_invalide_est_rejetee(client: TestClient):
 
 
 def test_callback_reussi_solde_la_cotisation(
-    client: TestClient, db: Session, make_user, momo: FakeMoMoClient
+    client: TestClient, db: Session, make_user, momo: FakeMoMoClient, reseau
 ):
-    contribution, tx = _contribution_en_cours(db, make_user, momo)
+    contribution, tx = _contribution_en_cours(db, make_user, reseau)
     body, headers = _signed({"externalId": str(tx.id), "status": "SUCCESSFUL"})
 
     response = client.post(f"{API}/webhooks/momo", content=body, headers=headers)
@@ -75,9 +75,9 @@ def test_callback_reussi_solde_la_cotisation(
 
 
 def test_callback_rejoue_reste_sans_effet(
-    client: TestClient, db: Session, make_user, momo: FakeMoMoClient
+    client: TestClient, db: Session, make_user, momo: FakeMoMoClient, reseau
 ):
-    contribution, tx = _contribution_en_cours(db, make_user, momo)
+    contribution, tx = _contribution_en_cours(db, make_user, reseau)
     body, headers = _signed({"externalId": str(tx.id), "status": "SUCCESSFUL"})
 
     premier = client.post(f"{API}/webhooks/momo", content=body, headers=headers)
@@ -90,9 +90,9 @@ def test_callback_rejoue_reste_sans_effet(
 
 
 def test_callback_en_echec_laisse_la_cotisation_due(
-    client: TestClient, db: Session, make_user, momo: FakeMoMoClient
+    client: TestClient, db: Session, make_user, momo: FakeMoMoClient, reseau
 ):
-    contribution, tx = _contribution_en_cours(db, make_user, momo)
+    contribution, tx = _contribution_en_cours(db, make_user, reseau)
     body, headers = _signed({"externalId": str(tx.id), "status": "FAILED"})
 
     client.post(f"{API}/webhooks/momo", content=body, headers=headers)
@@ -122,12 +122,12 @@ def test_un_callback_non_signe_est_rejete_sans_operateur_reel(client: TestClient
 
 
 def test_un_callback_non_signe_fait_foi_de_lavis_de_loperateur(
-    client: TestClient, db: Session, make_user, momo: FakeMoMoClient, monkeypatch
+    client: TestClient, db: Session, make_user, momo: FakeMoMoClient, reseau, monkeypatch
 ):
     # MTN ne signe pas : son appel n'est qu'un indice. Le corps annonce un
     # échec, l'opérateur interrogé dit le contraire — c'est lui qui tranche.
     _operateur_reel(monkeypatch)
-    contribution, tx = _contribution_en_cours(db, make_user, momo)
+    contribution, tx = _contribution_en_cours(db, make_user, reseau)
     monkeypatch.setattr(momo, "status", lambda **_: {"status": "SUCCESSFUL"})
 
     reponse = client.post(
@@ -143,12 +143,12 @@ def test_un_callback_non_signe_fait_foi_de_lavis_de_loperateur(
 
 
 def test_un_corps_forge_ne_peut_pas_fabriquer_un_succes(
-    client: TestClient, db: Session, make_user, momo: FakeMoMoClient, monkeypatch
+    client: TestClient, db: Session, make_user, momo: FakeMoMoClient, reseau, monkeypatch
 ):
     # C'est la propriété qui remplace la signature : au pire, un faux callback
     # nous fait interroger l'opérateur pour rien.
     _operateur_reel(monkeypatch)
-    contribution, tx = _contribution_en_cours(db, make_user, momo)
+    contribution, tx = _contribution_en_cours(db, make_user, reseau)
     monkeypatch.setattr(momo, "status", lambda **_: {"status": "FAILED"})
 
     client.post(
@@ -164,11 +164,11 @@ def test_un_corps_forge_ne_peut_pas_fabriquer_un_succes(
 
 
 def test_un_operateur_indecis_ne_change_rien(
-    client: TestClient, db: Session, make_user, momo: FakeMoMoClient, monkeypatch
+    client: TestClient, db: Session, make_user, momo: FakeMoMoClient, reseau, monkeypatch
 ):
     # Transaction encore en cours chez l'opérateur : on n'invente pas de verdict.
     _operateur_reel(monkeypatch)
-    contribution, tx = _contribution_en_cours(db, make_user, momo)
+    contribution, tx = _contribution_en_cours(db, make_user, reseau)
     monkeypatch.setattr(momo, "status", lambda **_: {"status": "PENDING"})
 
     reponse = client.post(

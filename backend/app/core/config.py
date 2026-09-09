@@ -51,6 +51,13 @@ class Settings(BaseSettings):
     # URL complète envoyée à chaque appel, aucun callback n'atteint la route.
     momo_callback_url: str = ""
 
+    # Quel opérateur dessert quel numéro. Format :
+    #   « mtn_momo:22951,22961;moov:22994 »
+    # Vide, tout part chez l'opérateur par défaut. Les plages sont attribuées
+    # par le régulateur et changent : elles se règlent, elles ne se codent pas.
+    operator_prefixes: str = ""
+    operator_default: str = "mtn_momo"
+
     # La monnaie de la zone UEMOA n'a pas de sous-unité : 1 XOF = 1 unité mineure.
     currency: str = "XOF"
 

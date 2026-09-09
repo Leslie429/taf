@@ -13,6 +13,13 @@ from app.models.enums import (
 from app.models.tontine import Membership, TontineGroup
 from app.services import ledger, tontine
 from app.services.momo import FakeMoMoClient
+from app.services.operateurs import Operateurs
+
+
+def _reseau(double: FakeMoMoClient) -> Operateurs:
+    """Un réseau à un seul opérateur, pour un test qui pilote son double."""
+    return Operateurs(clients={"fake": double, "mtn_momo": double},
+                      prefixes={}, defaut="mtn_momo")
 
 
 @pytest.fixture
@@ -91,8 +98,7 @@ def test_groupe_a_un_seul_membre_refuse_de_demarrer(db: Session, make_user):
 
 
 def test_double_clic_ne_declenche_quun_seul_appel_operateur(
-    db: Session, groupe, momo: FakeMoMoClient
-):
+    db: Session, groupe, momo: FakeMoMoClient, reseau):
     group, membres = groupe
     cycles = tontine.activate_group(db, group)
     contribution = cycles[0].contributions[0]
@@ -101,10 +107,10 @@ def test_double_clic_ne_declenche_quun_seul_appel_operateur(
     )
 
     first = tontine.initiate_contribution(
-        db, contribution=contribution, payer=payeur, momo=momo
+        db, contribution=contribution, payer=payeur, reseau=reseau
     )
     second = tontine.initiate_contribution(
-        db, contribution=contribution, payer=payeur, momo=momo
+        db, contribution=contribution, payer=payeur, reseau=reseau
     )
 
     assert first.id == second.id
@@ -112,8 +118,7 @@ def test_double_clic_ne_declenche_quun_seul_appel_operateur(
 
 
 def test_cycle_devient_finance_quand_tout_le_monde_a_paye(
-    db: Session, groupe, momo: FakeMoMoClient
-):
+    db: Session, groupe, momo: FakeMoMoClient, reseau):
     group, membres = groupe
     cycles = tontine.activate_group(db, group)
     cycle = cycles[0]
@@ -121,7 +126,9 @@ def test_cycle_devient_finance_quand_tout_le_monde_a_paye(
     for contribution in cycle.contributions:
         membership = db.get(Membership, contribution.membership_id)
         payeur = next(m for m in membres if m.id == membership.user_id)
-        tx = tontine.initiate_contribution(db, contribution=contribution, payer=payeur, momo=momo)
+        tx = tontine.initiate_contribution(
+            db, contribution=contribution, payer=payeur, reseau=reseau
+        )
         tontine.confirm_contribution(db, tx, success=True)
 
     assert cycle.status == CycleStatus.FUNDED
@@ -139,7 +146,7 @@ def test_paiement_refuse_remet_la_cotisation_a_payer(db: Session, groupe):
     payeur = next(m for m in membres if m.id == membership.user_id)
 
     tx = tontine.initiate_contribution(
-        db, contribution=contribution, payer=payeur, momo=FakeMoMoClient()
+        db, contribution=contribution, payer=payeur, reseau=_reseau(FakeMoMoClient())
     )
     tontine.confirm_contribution(db, tx, success=False)
 
@@ -148,15 +155,14 @@ def test_paiement_refuse_remet_la_cotisation_a_payer(db: Session, groupe):
 
 
 def test_versement_refuse_si_le_cycle_nest_pas_finance(
-    db: Session, groupe, momo: FakeMoMoClient
-):
+    db: Session, groupe, momo: FakeMoMoClient, reseau):
     group, _ = groupe
     cycles = tontine.activate_group(db, group)
     with pytest.raises(tontine.TontineError):
-        tontine.pay_out_cycle(db, cycles[0], momo)
+        tontine.pay_out_cycle(db, cycles[0], reseau)
 
 
-def test_versement_vide_la_cagnotte(db: Session, groupe, momo: FakeMoMoClient):
+def test_versement_vide_la_cagnotte(db: Session, groupe, momo: FakeMoMoClient, reseau):
     group, membres = groupe
     cycles = tontine.activate_group(db, group)
     cycle = cycles[0]
@@ -164,10 +170,12 @@ def test_versement_vide_la_cagnotte(db: Session, groupe, momo: FakeMoMoClient):
     for contribution in cycle.contributions:
         membership = db.get(Membership, contribution.membership_id)
         payeur = next(m for m in membres if m.id == membership.user_id)
-        tx = tontine.initiate_contribution(db, contribution=contribution, payer=payeur, momo=momo)
+        tx = tontine.initiate_contribution(
+            db, contribution=contribution, payer=payeur, reseau=reseau
+        )
         tontine.confirm_contribution(db, tx, success=True)
 
-    payout = tontine.pay_out_cycle(db, cycle, momo)
+    payout = tontine.pay_out_cycle(db, cycle, reseau)
     tontine.confirm_payout(db, payout, cycle, success=True)
 
     assert cycle.status == CycleStatus.PAID_OUT

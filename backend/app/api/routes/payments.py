@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from app.api.deps import CurrentUser, DbSession, MoMo
+from app.api.deps import CurrentUser, DbSession, Reseau
 from app.core.config import settings
 from app.models.enums import MembershipStatus, TransactionType
 from app.models.ledger import Transaction, WebhookEvent
@@ -18,7 +18,7 @@ router = APIRouter(tags=["paiements"])
 
 @router.post("/contributions/{contribution_id}/pay", response_model=TransactionOut)
 def pay_contribution(
-    contribution_id: UUID, db: DbSession, user: CurrentUser, momo: MoMo
+    contribution_id: UUID, db: DbSession, user: CurrentUser, reseau: Reseau
 ) -> Transaction:
     """Déclenche la demande de paiement Mobile Money pour sa propre cotisation."""
     contribution = db.get(Contribution, contribution_id)
@@ -33,7 +33,7 @@ def pay_contribution(
 
     try:
         transaction = tontine.initiate_contribution(
-            db, contribution=contribution, payer=user, momo=momo
+            db, contribution=contribution, payer=user, reseau=reseau
         )
     except tontine.TontineError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
@@ -44,7 +44,9 @@ def pay_contribution(
 
 
 @router.post("/cycles/{cycle_id}/payout", response_model=TransactionOut)
-def payout(cycle_id: UUID, db: DbSession, user: CurrentUser, momo: MoMo) -> Transaction:
+def payout(
+    cycle_id: UUID, db: DbSession, user: CurrentUser, reseau: Reseau
+) -> Transaction:
     """Verse la cagnotte au bénéficiaire. Réservé à l'administrateur du groupe."""
     cycle = db.get(Cycle, cycle_id)
     if cycle is None:
@@ -60,7 +62,7 @@ def payout(cycle_id: UUID, db: DbSession, user: CurrentUser, momo: MoMo) -> Tran
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Action réservée à l'administrateur.")
 
     try:
-        transaction = tontine.pay_out_cycle(db, cycle, momo)
+        transaction = tontine.pay_out_cycle(db, cycle, reseau)
     except tontine.TontineError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
 
@@ -70,7 +72,9 @@ def payout(cycle_id: UUID, db: DbSession, user: CurrentUser, momo: MoMo) -> Tran
 
 
 @router.post("/webhooks/momo", status_code=status.HTTP_202_ACCEPTED)
-async def momo_webhook(request: Request, db: DbSession, momo: MoMo) -> dict[str, str]:
+async def momo_webhook(
+    request: Request, db: DbSession, reseau: Reseau
+) -> dict[str, str]:
     """Reçoit le verdict de l'opérateur.
 
     Un callback signé est cru sur parole : la signature HMAC prouve qu'il vient
@@ -140,7 +144,12 @@ async def momo_webhook(request: Request, db: DbSession, momo: MoMo) -> dict[str,
             if transaction.type == TransactionType.CONTRIBUTION
             else "disbursement"
         )
-        tranche = momo_service.verdict(momo, reference=transaction.id, product=produit)
+        momo = reseau.pour_code(transaction.provider or "")
+        tranche = (
+            None
+            if momo is None
+            else momo_service.verdict(momo, reference=transaction.id, product=produit)
+        )
         if tranche is None:
             # Opérateur injoignable, ou transaction encore en cours chez lui :
             # on n'invente pas de verdict, il rappellera.

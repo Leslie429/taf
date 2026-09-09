@@ -28,7 +28,7 @@ from app.models.ledger import Transaction
 from app.models.reconciliation import Divergence, ReconciliationRun
 from app.services import momo as momo_service
 from app.services import tontine
-from app.services.momo import MoMoClient
+from app.services.operateurs import Operateurs
 
 # Une transaction qui vient de partir n'est pas un écart : l'opérateur a le
 # droit de mettre quelques minutes à trancher.
@@ -141,8 +141,10 @@ def _constater(
     return None
 
 
-def rapprocher(db: Session, momo: MoMoClient, *, appliquer: bool = True) -> ReconciliationRun:
-    """Confronte le grand livre au relevé de l'opérateur et journalise les écarts."""
+def rapprocher(
+    db: Session, reseau: Operateurs, *, appliquer: bool = True
+) -> ReconciliationRun:
+    """Confronte le grand livre au relevé des opérateurs et journalise les écarts."""
     maintenant = datetime.now(UTC)
     run = ReconciliationRun(started_at=maintenant)
     db.add(run)
@@ -153,6 +155,11 @@ def rapprocher(db: Session, momo: MoMoClient, *, appliquer: bool = True) -> Reco
         produit = _produit(transaction)
         if produit is None:
             # Une contrepassation n'a pas de contrepartie chez l'opérateur.
+            continue
+        # On repart de l'opérateur consigné : le numéro n'est plus disponible
+        # ici, et c'est de toute façon celui qui a traité qu'il faut interroger.
+        momo = reseau.pour_code(transaction.provider or "")
+        if momo is None:
             continue
         etat = momo_service.etat(momo, reference=transaction.id, product=produit)
         ecart = _constater(db, run, transaction, etat, appliquer=appliquer)

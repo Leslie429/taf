@@ -15,7 +15,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from app.api.deps import get_momo_client  # noqa: E402
+from app.api.deps import get_operateurs  # noqa: E402
 from app.db.session import SessionLocal  # noqa: E402
 from app.models.enums import DivergenceKind  # noqa: E402
 from app.services import rapprochement  # noqa: E402
@@ -38,7 +38,7 @@ def main() -> int:
     args = parser.parse_args()
 
     with SessionLocal() as db:
-        run = rapprochement.rapprocher(db, get_momo_client(), appliquer=not args.constat)
+        run = rapprochement.rapprocher(db, get_operateurs(), appliquer=not args.constat)
         ecarts = list(run.divergences)
 
     print(f"Rapprochement {run.id}")
