@@ -7,8 +7,8 @@ Mobile Money. Un groupe de membres cotise à chaque tour ; la cagnotte est vers�
 > Projet de démonstration technique orienté FinTech : comptabilité en partie
 > double, paiements idempotents, webhooks signés.
 
-**Démo** : <https://tontine-web.fly.dev> · **API** :
-<https://tontine-api.fly.dev/docs>
+**Démo** : <https://tontine-web.onrender.com> · **API** :
+<https://tontine-api.onrender.com/docs>
 
 Le compte de démonstration entre dans une tontine déjà entamée — deux tours
 versés, un en collecte, une cotisation à régler :
@@ -18,8 +18,8 @@ versés, un en collecte, une cotisation à régler :
 | Téléphone | `+22901691004` |
 | Mot de passe | `demo1234` |
 
-Les machines s'arrêtent sans trafic : le premier appel réveille l'API et prend
-quelques secondes.
+Les services s'endorment après quinze minutes sans trafic : le premier appel
+les réveille et prend une trentaine de secondes.
 
 ---
 
@@ -373,7 +373,7 @@ accident de démonstration.
 
 ```bash
 export MOMO_DISBURSEMENT_KEY=<clé primaire du produit>
-python scripts/provisionner_momo.py --produit disbursement --hote tontine-api.fly.dev
+python scripts/provisionner_momo.py --produit disbursement --hote tontine-api.onrender.com
 ```
 
 Le script imprime la commande `fly secrets set` à exécuter. La clé d'API n'est
@@ -387,13 +387,12 @@ développement : construction en plusieurs étapes, utilisateur sans privilèges
 aucun outil de compilation dans l'image finale, migrations appliquées au
 démarrage.
 
-### Fly.io pour les applications, Neon pour la base
+### Render pour les applications, Neon pour la base
 
-C'est le montage en place. Les machines Fly s'arrêtent d'elles-mêmes sans
-trafic, mais une base de données doit tourner en permanence : la laisser sur
-Fly rendrait la démonstration payante. Neon offre un Postgres managé gratuit
-qui se met lui aussi en veille, et l'API ne connaît de lui qu'une chaîne de
-connexion.
+C'est le montage en place. Les deux hébergeurs sont gratuits et sans carte
+bancaire, et la séparation résout leurs défauts respectifs : les services web
+de Render s'endorment sans trafic, ce qui ne coûte qu'une latence au réveil,
+tandis que sa base gratuite expire à 90 jours — celle de Neon non.
 
 ```bash
 # 1. La base, sur https://neon.tech — projet Postgres 16, région Frankfurt.
@@ -401,39 +400,28 @@ connexion.
 #    PgBouncer en mode transaction rejette les requêtes préparées de psycopg 3,
 #    et Alembic ne migre pas à travers un pooler.
 
-# 2. L'API
-cd backend
-fly apps create tontine-api
-fly secrets set --stage -a tontine-api \
-  DATABASE_URL='<chaîne Neon directe>' \
-  JWT_SECRET="$(openssl rand -hex 32)" \
-  MOMO_CALLBACK_SECRET="$(openssl rand -hex 32)" \
-  CORS_ORIGINS="https://tontine-web.fly.dev"
-fly deploy --remote-only
+# 2. Render → New → Blueprint → sélectionner ce dépôt.
+#    Le blueprint demande DATABASE_URL, CORS_ORIGINS, VITE_API_URL et les MOMO_*.
 
-# 3. Le front, qui a besoin de l'URL de l'API à la compilation
-cd ../frontend
-fly apps create tontine-web
-fly deploy --remote-only --build-arg VITE_API_URL=https://tontine-api.fly.dev/api/v1
+# 3. Après le premier déploiement, les URL réelles sont connues : renseigner
+#    CORS_ORIGINS et VITE_API_URL, puis redéployer le front — son URL d'API est
+#    figée à la compilation.
 ```
 
 Le préfixe de la chaîne Neon n'a pas à être converti : `postgresql://` et
 `postgres://` sont ramenés à `postgresql+psycopg://` par la configuration.
 
-### Render (sans carte bancaire)
-
-Le dépôt contient un blueprint : **New → Blueprint → sélectionner le dépôt**.
-Render demandera `CORS_ORIGINS` et `VITE_API_URL` — renseignez-les avec les URL
-complètes, schéma compris, après le premier déploiement.
-
-À savoir : les services gratuits s'endorment après quinze minutes sans trafic,
-et la base gratuite expire au bout de 90 jours. Pour une démonstration qui doit
-tenir dans la durée, Fly.io est plus sûr.
+Les migrations passent au démarrage du conteneur, la commande de
+pré-déploiement étant réservée aux offres payantes. C'est sans risque : l'offre
+gratuite ne lance qu'une instance. Le dépôt garde
+[`backend/fly.toml`](backend/fly.toml), où la même migration est un
+`release_command` — là, deux machines tournent, et la lancer au démarrage ferait
+courir deux migrations en concurrence sur la même table de version.
 
 ### Ce qu'il faut vérifier après un déploiement
 
 1. `GET /health` répond `{"status": "ok"}`
-2. `/docs` s'ouvre et liste les 17 opérations
+2. `/docs` s'ouvre et liste les 20 opérations
 3. Une inscription depuis le front aboutit — sinon, `CORS_ORIGINS` ne
    correspond pas exactement à l'origine du navigateur (schéma compris, sans
    barre finale)
@@ -447,7 +435,8 @@ collecte — pour que la page d'accueil montre la barre de tours dans ses trois
 états.
 
 ```bash
-fly ssh console -a tontine-api -C "python scripts/semer_demo.py"
+# Render → service tontine-api → onglet Shell
+python scripts/semer_demo.py
 ```
 
 Le script passe par les services métier, jamais par des insertions directes :
@@ -459,7 +448,7 @@ utilisation, et les soldes affichés se recalculent à partir d'elles.
 Sans `MOMO_SUBSCRIPTION_KEY`, l'API bascule sur le client simulé : un paiement
 part mais rien ne le confirme. Pour une démonstration en ligne, deux options —
 brancher le sandbox MTN et déclarer l'URL de callback
-`https://<api>/api/v1/webhooks/momo`, ou laisser le client simulé et confirmer
+`https://tontine-api.onrender.com/api/v1/webhooks/momo`, ou laisser le client simulé et confirmer
 les paiements avec
 [`scripts/confirmer_paiements.py`](backend/scripts/confirmer_paiements.py).
 

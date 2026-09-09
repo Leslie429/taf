@@ -106,6 +106,9 @@ def semer(db: Session) -> None:
             phone=telephone,
             full_name=nom,
             hashed_password=hash_password(MOT_DE_PASSE),
+            # Le compte de démonstration voit l'écran de rapprochement : c'est
+            # la fonctionnalité la plus difficile à raconter sans la montrer.
+            is_staff=(telephone == MEMBRES[POSITION_DEMO - 1][0]),
         )
         db.add(utilisateur)
         utilisateurs.append(utilisateur)

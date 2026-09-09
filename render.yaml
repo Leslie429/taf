@@ -1,19 +1,18 @@
-# Déploiement sur Render — l'alternative sans carte bancaire.
+# Déploiement sur Render — sans carte bancaire.
 #
-# À savoir avant de choisir : les services gratuits s'endorment au bout de
-# quinze minutes sans trafic (le premier appel prend alors ~30 s), et la base
-# PostgreSQL gratuite expire au bout de 90 jours. Pour une démonstration qui
-# doit rester en ligne durablement, Fly.io est plus sûr.
+# La base n'est pas ici : elle vit chez Neon. Ce n'est pas un détail de
+# commodité — la base PostgreSQL gratuite de Render expire au bout de 90 jours,
+# celle de Neon non. Le blueprint ne provisionne donc aucune base et attend une
+# chaîne de connexion.
 #
-#   1. Pousser le dépôt sur GitHub
-#   2. Render → New → Blueprint → sélectionner ce dépôt
-#   3. Renseigner MOMO_* dans le tableau de bord si le sandbox est branché
-
-databases:
-  - name: tontine-db
-    databaseName: tontine
-    user: tontine
-    plan: free
+# À savoir : les services gratuits s'endorment au bout de quinze minutes sans
+# trafic, et le premier appel qui les réveille prend une trentaine de secondes.
+#
+#   1. Render → New → Blueprint → sélectionner ce dépôt
+#   2. Renseigner les variables marquées « sync: false » ci-dessous
+#   3. Après le premier déploiement, revenir poser CORS_ORIGINS et
+#      VITE_API_URL avec les URL réelles, puis redéployer le front — son URL
+#      d'API est figée à la compilation.
 
 services:
   - type: web
@@ -23,21 +22,45 @@ services:
     rootDir: backend
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
+    # Render réserve la commande de pré-déploiement aux offres payantes : la
+    # migration repasse donc au démarrage du conteneur. C'est sans risque ici,
+    # l'offre gratuite ne lançant qu'une instance — sur Fly, où deux machines
+    # tournent, la même chose ferait courir deux migrations en concurrence.
+    dockerCommand: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1"
     envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: tontine-db
-          property: connectionString
+      # Render route vers ce port ; il doit correspondre à celui d'uvicorn.
+      - key: PORT
+        value: 8000
+      - key: ENVIRONMENT
+        value: production
       - key: JWT_SECRET
         generateValue: true
       - key: MOMO_CALLBACK_SECRET
         generateValue: true
-      - key: ENVIRONMENT
-        value: production
-      # `fromService … property: host` ne renvoie que l'hôte, sans schéma :
-      # Render demande donc la valeur au moment de créer le blueprint.
+      # Chaîne de connexion Neon, branche production, connexion DIRECTE — pas
+      # celle du pooler : PgBouncer en mode transaction rejette les requêtes
+      # préparées de psycopg 3, et Alembic ne migre pas à travers un pooler.
+      - key: DATABASE_URL
+        sync: false
+      # `fromService … property: host` ne renvoie que l'hôte, sans schéma.
       # Exemple : https://tontine-web.onrender.com
       - key: CORS_ORIGINS
+        sync: false
+      # Mobile Money. Laisser vide fait tourner l'API sur le double de test.
+      # L'URL de rappel doit porter le chemin complet : MTN n'enregistre qu'un
+      # hôte au provisionnement, et ne rappellerait que la racine du domaine.
+      # Exemple : https://tontine-api.onrender.com/api/v1/webhooks/momo
+      - key: MOMO_CALLBACK_URL
+        sync: false
+      - key: MOMO_COLLECTION_KEY
+        sync: false
+      - key: MOMO_DISBURSEMENT_KEY
+        sync: false
+      - key: MOMO_API_USER
+        sync: false
+      - key: MOMO_API_KEY
         sync: false
 
   - type: web
@@ -47,7 +70,11 @@ services:
     rootDir: frontend
     dockerfilePath: ./Dockerfile
     envVars:
-      # Figée à la compilation du bundle.
+      # nginx écoute sur 8080 : voir frontend/nginx.conf.
+      - key: PORT
+        value: 8080
+      # Figée à la compilation du bundle, Vite remplaçant les `import.meta.env`
+      # par leur valeur littérale. La changer impose un redéploiement du front.
       # Exemple : https://tontine-api.onrender.com/api/v1
       - key: VITE_API_URL
         sync: false
