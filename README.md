@@ -30,8 +30,8 @@ quelques secondes.
 | Comptabilité | Grand livre en partie double, aucun solde stocké, contrepassation au lieu de correction |
 | Fiabilité des paiements | Clé d'idempotence en base, machine à états des transactions, rejeu inoffensif |
 | Intégration opérateur | API MTN MoMo (Collection et Disbursement) sur sandbox, avec double de test |
-| Sécurité | JWT accès/rafraîchissement, webhooks signés HMAC-SHA256 comparés en temps constant, callbacks non signés vérifiés auprès de l'opérateur |
-| Qualité | 82 tests Pytest (91 % de couverture) et 10 tests Vitest, lint Ruff, typage strict `mypy` et TypeScript, CI GitHub Actions |
+| Sécurité | JWT accès/rafraîchissement, limitation de débit, révocation à la déconnexion, webhooks signés HMAC-SHA256 comparés en temps constant, callbacks non signés vérifiés auprès de l'opérateur |
+| Qualité | 93 tests Pytest (92 % de couverture) et 10 tests Vitest, lint Ruff, typage strict `mypy` et TypeScript, CI GitHub Actions |
 | Exploitation | Docker Compose, migrations Alembic versionnées, healthchecks |
 
 ## Pile technique
@@ -80,7 +80,7 @@ npm run dev
 ```bash
 # Back-end — nécessite une base tontine_test
 createdb tontine_test
-cd backend && pytest              # 82 tests, 91 % de couverture
+cd backend && pytest              # 93 tests, 92 % de couverture
 
 # Front-end
 cd frontend && npm run test       # 10 tests
@@ -160,6 +160,48 @@ La propriété qui remplace la signature : un callback forgé ne peut rien
 fabriquer. Au pire, il fait interroger MTN pour rien. Et un opérateur injoignable
 ou encore indécis ne produit aucun verdict — la transaction reste en cours et
 l'opérateur rappellera.
+
+## Durcissement de l'authentification
+
+### Limitation de débit
+
+Deux seaux sur `/auth/login`, comptés tous les deux à chaque tentative :
+**par adresse** contre le balayage de numéros, **par numéro** contre
+l'acharnement sur un seul compte. Un dépassement répond `429` avec `Retry-After`.
+
+Le compteur vit en **PostgreSQL**, pas en mémoire : l'API tourne sur plusieurs
+machines, et un compteur par processus se contournerait en insistant jusqu'à
+tomber sur l'autre. L'incrément passe par un `INSERT ... ON CONFLICT DO UPDATE`
+qui renvoie le total : atomique, sans lecture préalable ni verrou.
+
+La fenêtre est fixe plutôt que glissante. Son défaut connu — jusqu'à deux fois
+la limite à cheval sur deux fenêtres — est sans portée face à une attaque qui
+se compte en milliers d'essais, et elle tient dans un seul entier par seau.
+
+Une tentative refusée reste comptée : le compteur est validé avant que la
+requête n'échoue, sans quoi son annulation effacerait la trace de la tentative
+qui l'a motivée.
+
+`rate_limit_counters` gagne une ligne par seau et par fenêtre.
+[`scripts/purger_limites.py`](backend/scripts/purger_limites.py) efface les
+fenêtres périmées ; c'est la première tâche que prendra le battant Celery.
+
+### Révocation des jetons
+
+`POST /auth/logout` ne noircit aucune liste : il déplace une frontière. Le
+compte porte un `tokens_valid_from`, et tout jeton émis avant cet instant est
+refusé — accès et rafraîchissement d'un coup.
+
+L'intérêt est le coût : **la vérification n'ajoute aucune requête**. La ligne
+de l'utilisateur est de toute façon chargée pour l'authentifier, et la date
+d'émission est déjà dans le jeton. Une liste noire de `jti` aurait imposé une
+lecture de plus à chaque appel authentifié.
+
+Deux contreparties, assumées. La déconnexion vaut pour **toutes** les sessions
+du compte, pas seulement le terminal courant. Et comme `iat` ne porte que des
+secondes entières, l'arrondi est laissé du côté sûr : une reconnexion dans la
+seconde même de la déconnexion échouerait, plutôt que de laisser survivre le
+jeton avec lequel on vient de se déconnecter.
 
 ## Machine à états d'une transaction
 
@@ -385,7 +427,6 @@ les paiements avec
 
 ## Reste à faire
 
-- [ ] Limitation de débit sur l'authentification, révocation des jetons à la déconnexion
 - [ ] Journal d'audit horodaté des actions d'administration
 - [ ] Relances automatiques des cotisations en retard (Celery battant)
 - [ ] Rapprochement quotidien entre le grand livre et le relevé opérateur

@@ -26,6 +26,15 @@ class Settings(BaseSettings):
     access_token_ttl_minutes: int = 15
     refresh_token_ttl_days: int = 30
 
+    # Limitation de débit sur les points d'entrée non authentifiés. Deux seaux
+    # pour la connexion : par adresse, pour freiner un balayage de numéros ;
+    # par numéro, pour freiner une attaque distribuée sur un seul compte.
+    login_max_par_adresse: int = 20
+    login_max_par_numero: int = 5
+    login_fenetre_secondes: int = 300
+    register_max_par_adresse: int = 5
+    register_fenetre_secondes: int = 3600
+
     # MTN MoMo sandbox — https://momodeveloper.mtn.com
     momo_base_url: str = "https://sandbox.momodeveloper.mtn.com"
     # MTN délivre une clé d'abonnement par produit : s'abonner à Collection ne

@@ -5,7 +5,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.security import decode_token
+from app.core.security import decode_token, jeton_encore_valide
 from app.db.session import get_db
 from app.models.user import User
 from app.services.momo import (
@@ -27,13 +27,16 @@ def get_current_user(
     if credentials is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Jeton manquant.")
 
-    user_id = decode_token(credentials.credentials, "access")
-    if user_id is None:
+    claims = decode_token(credentials.credentials, "access")
+    if claims is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Jeton invalide ou expiré.")
 
-    user = db.get(User, user_id)
+    user = db.get(User, claims.subject)
     if user is None or not user.is_active:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Compte introuvable ou désactivé.")
+    # La révocation ne coûte aucune requête : la ligne est déjà chargée.
+    if not jeton_encore_valide(user.tokens_valid_from, claims.issued_at):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Session close.")
     return user
 
 

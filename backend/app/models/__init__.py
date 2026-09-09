@@ -1,4 +1,5 @@
 from app.models.ledger import Account, LedgerEntry, Transaction, WebhookEvent
+from app.models.rate_limit import RateLimitCounter
 from app.models.tontine import Contribution, Cycle, Membership, TontineGroup
 from app.models.user import User
 
@@ -8,6 +9,7 @@ __all__ = [
     "Cycle",
     "LedgerEntry",
     "Membership",
+    "RateLimitCounter",
     "TontineGroup",
     "Transaction",
     "User",

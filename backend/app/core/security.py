@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 from uuid import UUID
@@ -46,8 +47,19 @@ def create_token(subject: UUID, token_type: TokenType) -> str:
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
-def decode_token(token: str, expected_type: TokenType) -> UUID | None:
-    """Renvoie l'identifiant du sujet, ou None si le jeton est invalide."""
+@dataclass(frozen=True)
+class TokenClaims:
+    subject: UUID
+    issued_at: datetime
+
+
+def decode_token(token: str, expected_type: TokenType) -> TokenClaims | None:
+    """Renvoie les revendications du jeton, ou None s'il est invalide.
+
+    La date d'émission fait partie du contrat : c'est elle qui permet de
+    révoquer d'un coup tous les jetons délivrés avant une déconnexion, sans
+    tenir de liste noire ni interroger la base à chaque appel.
+    """
     try:
         payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
     except JWTError:
@@ -56,6 +68,25 @@ def decode_token(token: str, expected_type: TokenType) -> UUID | None:
     if payload.get("type") != expected_type:
         return None
     try:
-        return UUID(payload["sub"])
-    except (KeyError, ValueError):
+        return TokenClaims(
+            subject=UUID(payload["sub"]),
+            issued_at=datetime.fromtimestamp(int(payload["iat"]), tz=UTC),
+        )
+    except (KeyError, ValueError, TypeError, OSError):
         return None
+
+
+def jeton_encore_valide(valides_depuis: datetime | None, emis_le: datetime) -> bool:
+    """Le jeton a-t-il été émis après la dernière révocation du compte ?
+
+    `None` signifie qu'aucune déconnexion n'a jamais eu lieu : tout jeton passe.
+
+    `iat` ne porte que des secondes entières, là où la révocation garde ses
+    microsecondes. L'arrondi est laissé du côté sûr : un jeton émis pendant la
+    seconde de la déconnexion est refusé. Le prix est une reconnexion immédiate
+    — dans la même seconde — qui échouerait ; l'inverse aurait laissé survivre
+    le jeton même avec lequel on se déconnecte.
+    """
+    if valides_depuis is None:
+        return True
+    return emis_le >= valides_depuis
