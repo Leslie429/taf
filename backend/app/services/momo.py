@@ -170,6 +170,43 @@ class FakeMoMoClient:
         return {"status": "SUCCESSFUL" if self.accept else "FAILED"}
 
 
+class ProductRoutedClient:
+    """Un client par produit, choisi à l'appel.
+
+    Un opérateur peut être joignable sur un produit et pas sur l'autre : le
+    sandbox MTN plafonne les abonnements à Collection alors que Disbursement
+    s'y souscrit normalement. Router par produit permet au versement de partir
+    sur l'opérateur réel pendant que l'encaissement reste sur le double.
+
+    C'est une situation d'exploitation ordinaire, pas un montage de fortune :
+    un opérateur en panne partielle se traite exactement de la même façon.
+    """
+
+    def __init__(self, *, collection: MoMoClient, disbursement: MoMoClient) -> None:
+        self.collection = collection
+        self.disbursement = disbursement
+
+    def _pour(self, product: str) -> MoMoClient:
+        return self.collection if product == "collection" else self.disbursement
+
+    def request_to_pay(
+        self, *, reference: uuid.UUID, amount_minor: int, payer_phone: str, note: str
+    ) -> MoMoResult:
+        return self.collection.request_to_pay(
+            reference=reference, amount_minor=amount_minor, payer_phone=payer_phone, note=note
+        )
+
+    def transfer(
+        self, *, reference: uuid.UUID, amount_minor: int, payee_phone: str, note: str
+    ) -> MoMoResult:
+        return self.disbursement.transfer(
+            reference=reference, amount_minor=amount_minor, payee_phone=payee_phone, note=note
+        )
+
+    def status(self, *, reference: uuid.UUID, product: str) -> dict[str, Any]:
+        return self._pour(product).status(reference=reference, product=product)
+
+
 def verify_signature(raw_body: bytes, received_signature: str) -> bool:
     """Vérifie la signature HMAC d'un callback, en temps constant."""
     expected = hmac.new(
