@@ -102,14 +102,23 @@ class MtnMoMoClient:
             return "EUR"
         return settings.currency
 
-    def _headers(self, product: str, reference: uuid.UUID) -> dict[str, str]:
-        return {
+    def _headers(
+        self, product: str, reference: uuid.UUID, *, rappel: bool = False
+    ) -> dict[str, str]:
+        entetes = {
             "Authorization": f"Bearer {self._token(product)}",
             "X-Reference-Id": str(reference),
             "X-Target-Environment": settings.momo_target_environment,
             "Ocp-Apim-Subscription-Key": settings.momo_key_for(product),
             "Content-Type": "application/json",
         }
+        # Le provisionnement n'enregistre qu'un hôte, sans chemin : MTN ne
+        # rappellerait donc que la racine du domaine. L'URL complète se donne
+        # ici, appel par appel. Sans elle, la demande part et rien ne revient —
+        # constaté sur le sandbox, où le webhook n'était jamais atteint.
+        if rappel and settings.momo_callback_url:
+            entetes["X-Callback-Url"] = settings.momo_callback_url
+        return entetes
 
     def request_to_pay(
         self, *, reference: uuid.UUID, amount_minor: int, payer_phone: str, note: str
@@ -125,7 +134,7 @@ class MtnMoMoClient:
         response = self._client.post(
             "/collection/v1_0/requesttopay",
             json=payload,
-            headers=self._headers("collection", reference),
+            headers=self._headers("collection", reference, rappel=True),
         )
         # 202 : la demande est acceptée, le résultat arrivera par callback.
         return MoMoResult(
@@ -148,7 +157,7 @@ class MtnMoMoClient:
         response = self._client.post(
             "/disbursement/v1_0/transfer",
             json=payload,
-            headers=self._headers("disbursement", reference),
+            headers=self._headers("disbursement", reference, rappel=True),
         )
         return MoMoResult(
             external_id=str(reference),

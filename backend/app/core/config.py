@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     momo_api_key: str = ""
     momo_target_environment: str = "sandbox"
     momo_callback_secret: str = "dev-webhook-secret"
+    # MTN n'enregistre qu'un hôte au provisionnement, sans chemin : sans cette
+    # URL complète envoyée à chaque appel, aucun callback n'atteint la route.
+    momo_callback_url: str = ""
 
     # La monnaie de la zone UEMOA n'a pas de sous-unité : 1 XOF = 1 unité mineure.
     currency: str = "XOF"

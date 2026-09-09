@@ -126,3 +126,36 @@ def test_le_libelle_est_ramene_a_ce_que_loperateur_accepte(brut, attendu):
 
 def test_le_libelle_est_tronque_a_cent_soixante():
     assert len(libelle_operateur("a" * 300)) == 160
+
+
+def test_lurl_de_rappel_accompagne_les_appels_de_paiement(monkeypatch):
+    # MTN n'enregistre qu'un hôte au provisionnement : sans cette URL complète,
+    # le callback n'atteint jamais la route et le paiement reste en cours.
+    monkeypatch.setattr(
+        "app.services.momo.settings",
+        Settings(momo_callback_url="https://api.test/api/v1/webhooks/momo"),
+    )
+    client = MtnMoMoClient()
+    monkeypatch.setattr(client, "_token", lambda produit: "jeton")
+
+    entetes = client._headers("disbursement", uuid.uuid4(), rappel=True)
+    assert entetes["X-Callback-Url"] == "https://api.test/api/v1/webhooks/momo"
+
+
+def test_la_consultation_de_statut_ne_demande_pas_de_rappel(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.momo.settings",
+        Settings(momo_callback_url="https://api.test/api/v1/webhooks/momo"),
+    )
+    client = MtnMoMoClient()
+    monkeypatch.setattr(client, "_token", lambda produit: "jeton")
+
+    assert "X-Callback-Url" not in client._headers("disbursement", uuid.uuid4())
+
+
+def test_sans_url_configuree_aucun_en_tete_de_rappel(monkeypatch):
+    monkeypatch.setattr("app.services.momo.settings", Settings(momo_callback_url=""))
+    client = MtnMoMoClient()
+    monkeypatch.setattr(client, "_token", lambda produit: "jeton")
+
+    assert "X-Callback-Url" not in client._headers("disbursement", uuid.uuid4(), rappel=True)
