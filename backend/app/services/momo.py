@@ -251,6 +251,26 @@ class ProductRoutedClient:
         return self._pour(product).status(reference=reference, product=product)
 
 
+def verdict(client: MoMoClient, *, reference: uuid.UUID, product: str) -> bool | None:
+    """Demande à l'opérateur ce qu'il est advenu d'une référence.
+
+    Renvoie `None` quand il n'y a rien à trancher : opérateur injoignable, ou
+    transaction encore en cours chez lui. L'appelant doit alors ne rien changer
+    et laisser l'opérateur rappeler.
+    """
+    try:
+        etat = client.status(reference=reference, product=product)
+    except (MoMoError, httpx.HTTPError):
+        return None
+
+    statut = str(etat.get("status", "")).upper()
+    if statut in {"SUCCESSFUL", "SUCCESS"}:
+        return True
+    if statut in {"FAILED", "REJECTED"}:
+        return False
+    return None
+
+
 def verify_signature(raw_body: bytes, received_signature: str) -> bool:
     """Vérifie la signature HMAC d'un callback, en temps constant."""
     expected = hmac.new(

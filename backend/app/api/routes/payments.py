@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.api.deps import CurrentUser, DbSession, MoMo
+from app.core.config import settings
 from app.models.enums import MembershipStatus, TransactionType
 from app.models.ledger import Transaction, WebhookEvent
 from app.models.tontine import Contribution, Cycle, Membership
@@ -69,17 +70,33 @@ def payout(cycle_id: UUID, db: DbSession, user: CurrentUser, momo: MoMo) -> Tran
 
 
 @router.post("/webhooks/momo", status_code=status.HTTP_202_ACCEPTED)
-async def momo_webhook(request: Request, db: DbSession) -> dict[str, str]:
+async def momo_webhook(request: Request, db: DbSession, momo: MoMo) -> dict[str, str]:
     """Reçoit le verdict de l'opérateur.
 
-    Trois protections : la signature HMAC, l'unicité de l'événement en base pour
-    absorber les rejeux, et une réponse 202 systématique pour éviter que
-    l'opérateur ne réessaie indéfiniment sur une erreur qui nous appartient.
+    Un callback signé est cru sur parole : la signature HMAC prouve qu'il vient
+    de qui partage notre secret.
+
+    MTN, lui, ne signe rien — il n'a jamais reçu ce secret et ne peut pas le
+    connaître. Son appel n'est donc pas une vérité mais un indice : « il s'est
+    passé quelque chose sur cette référence ». On interroge alors l'opérateur
+    avec nos propres identifiants et on applique SA réponse, jamais le corps
+    reçu. Un callback forgé ne peut ainsi rien fabriquer — au pire il nous fait
+    interroger MTN pour rien.
+
+    Restent l'unicité de l'événement en base, qui absorbe les rejeux, et une
+    réponse 202 systématique : une erreur qui nous appartient ne doit pas faire
+    réessayer l'opérateur indéfiniment.
     """
     raw = await request.body()
     signature = request.headers.get("X-Callback-Signature", "")
+    signature_valide = momo_service.verify_signature(raw, signature)
 
-    if not momo_service.verify_signature(raw, signature):
+    # Sans opérateur réel configuré, une signature invalide n'a aucune excuse :
+    # personne d'autre que le double n'est censé nous appeler.
+    operateur_reel = bool(
+        settings.momo_key_for("collection") or settings.momo_key_for("disbursement")
+    )
+    if not signature_valide and not operateur_reel:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Signature invalide.")
 
     payload = MoMoCallback.model_validate_json(raw)
@@ -96,7 +113,7 @@ async def momo_webhook(request: Request, db: DbSession) -> dict[str, str]:
     event = WebhookEvent(
         provider=tontine.PROVIDER,
         event_id=payload.externalId,
-        signature_valid=True,
+        signature_valid=signature_valide,
         payload=payload.model_dump(),
     )
     db.add(event)
@@ -115,7 +132,22 @@ async def momo_webhook(request: Request, db: DbSession) -> dict[str, str]:
         db.commit()
         return {"status": "unknown_transaction"}
 
-    success = payload.status.upper() in {"SUCCESSFUL", "SUCCESS"}
+    if signature_valide:
+        success = payload.status.upper() in {"SUCCESSFUL", "SUCCESS"}
+    else:
+        produit = (
+            "collection"
+            if transaction.type == TransactionType.CONTRIBUTION
+            else "disbursement"
+        )
+        tranche = momo_service.verdict(momo, reference=transaction.id, product=produit)
+        if tranche is None:
+            # Opérateur injoignable, ou transaction encore en cours chez lui :
+            # on n'invente pas de verdict, il rappellera.
+            event.last_error = "Verdict opérateur indisponible"
+            db.commit()
+            return {"status": "unverified"}
+        success = tranche
 
     if transaction.type == TransactionType.CONTRIBUTION:
         tontine.confirm_contribution(db, transaction, success=success)

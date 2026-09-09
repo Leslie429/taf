@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import json
 from datetime import date
+from uuid import uuid4
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -98,3 +99,84 @@ def test_callback_en_echec_laisse_la_cotisation_due(
 
     db.refresh(contribution)
     assert contribution.status == ContributionStatus.DUE
+
+
+def _operateur_reel(monkeypatch):
+    """Fait croire à la route qu'un opérateur réel est configuré."""
+    from app.core.config import Settings
+
+    monkeypatch.setattr(
+        "app.api.routes.payments.settings", Settings(momo_collection_key="cle")
+    )
+
+
+def test_un_callback_non_signe_est_rejete_sans_operateur_reel(client: TestClient):
+    # En développement, seul le double nous appelle : rien ne justifie l'absence
+    # de signature.
+    reponse = client.post(
+        f"{API}/webhooks/momo",
+        content=json.dumps({"externalId": str(uuid4()), "status": "SUCCESSFUL"}),
+        headers={"Content-Type": "application/json"},
+    )
+    assert reponse.status_code == 401
+
+
+def test_un_callback_non_signe_fait_foi_de_lavis_de_loperateur(
+    client: TestClient, db: Session, make_user, momo: FakeMoMoClient, monkeypatch
+):
+    # MTN ne signe pas : son appel n'est qu'un indice. Le corps annonce un
+    # échec, l'opérateur interrogé dit le contraire — c'est lui qui tranche.
+    _operateur_reel(monkeypatch)
+    contribution, tx = _contribution_en_cours(db, make_user, momo)
+    monkeypatch.setattr(momo, "status", lambda **_: {"status": "SUCCESSFUL"})
+
+    reponse = client.post(
+        f"{API}/webhooks/momo",
+        content=json.dumps({"externalId": str(tx.id), "status": "FAILED"}),
+        headers={"Content-Type": "application/json"},
+    )
+
+    assert reponse.status_code == 202
+    assert reponse.json()["status"] == "processed"
+    db.refresh(contribution)
+    assert contribution.status == ContributionStatus.PAID
+
+
+def test_un_corps_forge_ne_peut_pas_fabriquer_un_succes(
+    client: TestClient, db: Session, make_user, momo: FakeMoMoClient, monkeypatch
+):
+    # C'est la propriété qui remplace la signature : au pire, un faux callback
+    # nous fait interroger l'opérateur pour rien.
+    _operateur_reel(monkeypatch)
+    contribution, tx = _contribution_en_cours(db, make_user, momo)
+    monkeypatch.setattr(momo, "status", lambda **_: {"status": "FAILED"})
+
+    client.post(
+        f"{API}/webhooks/momo",
+        content=json.dumps({"externalId": str(tx.id), "status": "SUCCESSFUL"}),
+        headers={"Content-Type": "application/json"},
+    )
+
+    db.refresh(contribution)
+    assert contribution.status == ContributionStatus.DUE
+    db.refresh(tx)
+    assert tx.status == TransactionStatus.FAILED
+
+
+def test_un_operateur_indecis_ne_change_rien(
+    client: TestClient, db: Session, make_user, momo: FakeMoMoClient, monkeypatch
+):
+    # Transaction encore en cours chez l'opérateur : on n'invente pas de verdict.
+    _operateur_reel(monkeypatch)
+    contribution, tx = _contribution_en_cours(db, make_user, momo)
+    monkeypatch.setattr(momo, "status", lambda **_: {"status": "PENDING"})
+
+    reponse = client.post(
+        f"{API}/webhooks/momo",
+        content=json.dumps({"externalId": str(tx.id), "status": "SUCCESSFUL"}),
+        headers={"Content-Type": "application/json"},
+    )
+
+    assert reponse.json()["status"] == "unverified"
+    db.refresh(contribution)
+    assert contribution.status == ContributionStatus.PROCESSING

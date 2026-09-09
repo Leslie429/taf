@@ -30,8 +30,8 @@ quelques secondes.
 | Comptabilité | Grand livre en partie double, aucun solde stocké, contrepassation au lieu de correction |
 | Fiabilité des paiements | Clé d'idempotence en base, machine à états des transactions, rejeu inoffensif |
 | Intégration opérateur | API MTN MoMo (Collection et Disbursement) sur sandbox, avec double de test |
-| Sécurité | JWT accès/rafraîchissement, webhooks signés HMAC-SHA256 comparés en temps constant |
-| Qualité | 78 tests Pytest (91 % de couverture) et 10 tests Vitest, lint Ruff, typage strict `mypy` et TypeScript, CI GitHub Actions |
+| Sécurité | JWT accès/rafraîchissement, webhooks signés HMAC-SHA256 comparés en temps constant, callbacks non signés vérifiés auprès de l'opérateur |
+| Qualité | 82 tests Pytest (91 % de couverture) et 10 tests Vitest, lint Ruff, typage strict `mypy` et TypeScript, CI GitHub Actions |
 | Exploitation | Docker Compose, migrations Alembic versionnées, healthchecks |
 
 ## Pile technique
@@ -80,7 +80,7 @@ npm run dev
 ```bash
 # Back-end — nécessite une base tontine_test
 createdb tontine_test
-cd backend && pytest              # 78 tests, 91 % de couverture
+cd backend && pytest              # 82 tests, 91 % de couverture
 
 # Front-end
 cd frontend && npm run test       # 10 tests
@@ -141,6 +141,25 @@ opérateur rejouera son callback. Les deux cas doivent rester sans effet.
 - Les callbacks sont journalisés dans `webhook_events` avec une contrainte
   d'unicité sur `(provider, event_id)` : un rejeu répond `duplicate` sans
   reproduire l'effet métier.
+
+### Un callback n'est pas une preuve
+
+Un callback signé est cru sur parole : la signature HMAC prouve qu'il vient de
+qui partage le secret.
+
+**MTN, lui, ne signe rien.** Il n'a jamais reçu ce secret et ne peut pas le
+connaître — ses appels arrivaient donc en 401. Un webhook qui n'accepte que du
+signé ne peut tout simplement pas parler à cet opérateur.
+
+Un appel non signé n'est donc pas traité comme une vérité mais comme un
+indice : « il s'est passé quelque chose sur cette référence ». L'API interroge
+alors l'opérateur avec ses propres identifiants et applique **sa** réponse,
+jamais le corps reçu.
+
+La propriété qui remplace la signature : un callback forgé ne peut rien
+fabriquer. Au pire, il fait interroger MTN pour rien. Et un opérateur injoignable
+ou encore indécis ne produit aucun verdict — la transaction reste en cours et
+l'opérateur rappellera.
 
 ## Machine à états d'une transaction
 
