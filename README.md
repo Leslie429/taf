@@ -275,6 +275,21 @@ tenir dans la durée, Fly.io est plus sûr.
    barre finale)
 4. Le compte de démonstration est créé et documenté en tête de ce README
 
+### Peupler la démonstration
+
+Un écran vide ne démontre rien. [`scripts/semer_demo.py`](backend/scripts/semer_demo.py)
+crée une tontine de cinq membres déjà entamée — deux tours versés, un tour en
+collecte — pour que la page d'accueil montre la barre de tours dans ses trois
+états.
+
+```bash
+fly ssh console -a tontine-api -C "python scripts/semer_demo.py"
+```
+
+Le script passe par les services métier, jamais par des insertions directes :
+les écritures du grand livre sont celles qu'aurait produites une vraie
+utilisation, et les soldes affichés se recalculent à partir d'elles.
+
 ### Mobile Money en production
 
 Sans `MOMO_SUBSCRIPTION_KEY`, l'API bascule sur le client simulé : un paiement
