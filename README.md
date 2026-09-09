@@ -7,7 +7,19 @@ Mobile Money. Un groupe de membres cotise à chaque tour ; la cagnotte est vers�
 > Projet de démonstration technique orienté FinTech : comptabilité en partie
 > double, paiements idempotents, webhooks signés.
 
-**Démo** : _à déployer_ · **API** : _à déployer_ `/docs`
+**Démo** : <https://tontine-web.fly.dev> · **API** :
+<https://tontine-api.fly.dev/docs>
+
+Le compte de démonstration entre dans une tontine déjà entamée — deux tours
+versés, un en collecte, une cotisation à régler :
+
+| | |
+| --- | --- |
+| Téléphone | `+22901691004` |
+| Mot de passe | `demo1234` |
+
+Les machines s'arrêtent sans trafic : le premier appel réveille l'API et prend
+quelques secondes.
 
 ---
 
@@ -231,30 +243,38 @@ développement : construction en plusieurs étapes, utilisateur sans privilèges
 aucun outil de compilation dans l'image finale, migrations appliquées au
 démarrage.
 
-### Fly.io (recommandé)
+### Fly.io pour les applications, Neon pour la base
 
-Les machines s'arrêtent d'elles-mêmes sans trafic, ce qui garde la
-démonstration gratuite. Une carte bancaire est demandée à l'inscription, même
-sans facturation.
+C'est le montage en place. Les machines Fly s'arrêtent d'elles-mêmes sans
+trafic, mais une base de données doit tourner en permanence : la laisser sur
+Fly rendrait la démonstration payante. Neon offre un Postgres managé gratuit
+qui se met lui aussi en veille, et l'API ne connaît de lui qu'une chaîne de
+connexion.
 
 ```bash
-# 1. L'API et sa base
-cd backend
-fly launch --no-deploy --copy-config
-fly postgres create --name tontine-db
-fly postgres attach tontine-db          # renseigne DATABASE_URL
+# 1. La base, sur https://neon.tech — projet Postgres 16, région Frankfurt.
+#    Copier la chaîne de connexion DIRECTE, sans « -pooler » dans l'hôte :
+#    PgBouncer en mode transaction rejette les requêtes préparées de psycopg 3,
+#    et Alembic ne migre pas à travers un pooler.
 
-fly secrets set \
+# 2. L'API
+cd backend
+fly apps create tontine-api
+fly secrets set --stage -a tontine-api \
+  DATABASE_URL='<chaîne Neon directe>' \
   JWT_SECRET="$(openssl rand -hex 32)" \
   MOMO_CALLBACK_SECRET="$(openssl rand -hex 32)" \
   CORS_ORIGINS="https://tontine-web.fly.dev"
-fly deploy
+fly deploy --remote-only
 
-# 2. Le front, qui a besoin de l'URL de l'API à la compilation
+# 3. Le front, qui a besoin de l'URL de l'API à la compilation
 cd ../frontend
-fly launch --no-deploy --copy-config
-fly deploy --build-arg VITE_API_URL=https://tontine-api.fly.dev/api/v1
+fly apps create tontine-web
+fly deploy --remote-only --build-arg VITE_API_URL=https://tontine-api.fly.dev/api/v1
 ```
+
+Le préfixe de la chaîne Neon n'a pas à être converti : `postgresql://` et
+`postgres://` sont ramenés à `postgresql+psycopg://` par la configuration.
 
 ### Render (sans carte bancaire)
 
@@ -269,7 +289,7 @@ tenir dans la durée, Fly.io est plus sûr.
 ### Ce qu'il faut vérifier après un déploiement
 
 1. `GET /health` répond `{"status": "ok"}`
-2. `/docs` s'ouvre et liste les 14 routes
+2. `/docs` s'ouvre et liste les 17 opérations
 3. Une inscription depuis le front aboutit — sinon, `CORS_ORIGINS` ne
    correspond pas exactement à l'origine du navigateur (schéma compris, sans
    barre finale)
