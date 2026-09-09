@@ -49,15 +49,23 @@ def _produit(transaction: Transaction) -> str | None:
 
 def _a_examiner(db: Session, maintenant: datetime) -> list[Transaction]:
     """Les transactions dont l'état mérite d'être confronté à l'opérateur."""
+    # Le double n'a pas de relevé : confronter ses transactions au vrai
+    # opérateur les ferait toutes passer pour des succès sans contrepartie.
+    # Écrit en deux prédicats et non en `not_in((None, ...))` : un NULL dans la
+    # liste d'un NOT IN annule le prédicat pour toutes les lignes, et le
+    # rapprochement n'examinerait plus rien.
+    chez_un_operateur = Transaction.provider.is_not(None) & (
+        Transaction.provider != momo_service.PROVIDER_DOUBLE
+    )
     en_cours = select(Transaction).where(
         Transaction.status.in_((TransactionStatus.PENDING, TransactionStatus.PROCESSING)),
         Transaction.updated_at < maintenant - DELAI_DE_GRACE,
-        Transaction.provider.is_not(None),
+        chez_un_operateur,
     )
     succes_recents = select(Transaction).where(
         Transaction.status == TransactionStatus.SUCCESS,
         Transaction.updated_at >= maintenant - FENETRE_DES_SUCCES,
-        Transaction.provider.is_not(None),
+        chez_un_operateur,
     )
     transactions = list(db.execute(en_cours).scalars().all())
     transactions += list(db.execute(succes_recents).scalars().all())

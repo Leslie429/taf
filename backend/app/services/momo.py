@@ -51,7 +51,18 @@ class MoMoResult:
     raw: dict[str, Any]
 
 
+# Consigné sur chaque transaction. Une transaction traitée par le double ne
+# doit pas être confrontée plus tard au relevé d'un opérateur qui ne l'a jamais
+# vue : le rapprochement la prendrait pour un succès sans contrepartie.
+PROVIDER_MTN = "mtn_momo"
+PROVIDER_DOUBLE = "fake"
+
+
 class MoMoClient(Protocol):
+    def provider_for(self, product: str) -> str:
+        """Qui traite réellement ce produit."""
+        ...
+
     def request_to_pay(
         self, *, reference: uuid.UUID, amount_minor: int, payer_phone: str, note: str
     ) -> MoMoResult: ...
@@ -69,6 +80,9 @@ class MtnMoMoClient:
     def __init__(self, client: httpx.Client | None = None) -> None:
         self._client = client or httpx.Client(base_url=settings.momo_base_url, timeout=15.0)
         self._tokens: dict[str, str] = {}
+
+    def provider_for(self, product: str) -> str:
+        return PROVIDER_MTN
 
     def _token(self, product: str) -> str:
         if product in self._tokens:
@@ -192,6 +206,9 @@ class FakeMoMoClient:
         self.accept = accept
         self.calls: list[dict[str, Any]] = []
 
+    def provider_for(self, product: str) -> str:
+        return PROVIDER_DOUBLE
+
     def request_to_pay(
         self, *, reference: uuid.UUID, amount_minor: int, payer_phone: str, note: str
     ) -> MoMoResult:
@@ -240,6 +257,9 @@ class ProductRoutedClient:
 
     def _pour(self, product: str) -> MoMoClient:
         return self.collection if product == "collection" else self.disbursement
+
+    def provider_for(self, product: str) -> str:
+        return self._pour(product).provider_for(product)
 
     def request_to_pay(
         self, *, reference: uuid.UUID, amount_minor: int, payer_phone: str, note: str

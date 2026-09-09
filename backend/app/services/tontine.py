@@ -29,6 +29,8 @@ from app.models.user import User
 from app.services import ledger
 from app.services.momo import MoMoClient
 
+# Conservé pour le journal des callbacks, qui identifie l'opérateur et non le
+# client : c'est bien MTN qui rappelle, jamais le double.
 PROVIDER = "mtn_momo"
 
 
@@ -137,7 +139,10 @@ def initiate_contribution(
             ledger.Posting(pot.id, EntryDirection.CREDIT, contribution.amount_minor),
         ],
         currency=group.currency,
-        provider=PROVIDER,
+        # Qui traite réellement, pas qui devrait traiter : une transaction
+        # passée par le double ne doit pas être confrontée plus tard au relevé
+        # de MTN, qui ne l'a jamais vue.
+        provider=momo.provider_for("collection"),
     )
 
     if transaction.status != TransactionStatus.PENDING:
@@ -259,7 +264,7 @@ def pay_out_cycle(db: Session, cycle: Cycle, momo: MoMoClient) -> Transaction:
             ledger.Posting(clearing.id, EntryDirection.CREDIT, amount),
         ],
         currency=group.currency,
-        provider=PROVIDER,
+        provider=momo.provider_for("disbursement"),
     )
 
     if transaction.status != TransactionStatus.PENDING:

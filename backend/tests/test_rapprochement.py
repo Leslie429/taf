@@ -20,7 +20,7 @@ from app.models.ledger import Transaction
 from app.models.reconciliation import Divergence
 from app.models.tontine import Membership, TontineGroup
 from app.services import ledger, rapprochement, tontine
-from app.services.momo import FakeMoMoClient
+from app.services.momo import PROVIDER_DOUBLE, PROVIDER_MTN, FakeMoMoClient
 
 
 @pytest.fixture
@@ -48,6 +48,9 @@ def cotisation_en_cours(db: Session, make_user, momo: FakeMoMoClient):
     transaction = tontine.initiate_contribution(
         db, contribution=contribution, payer=payeur, momo=momo
     )
+    # Le double répond aux interrogations de statut, mais la transaction est
+    # attribuée à l'opérateur réel : c'est lui qu'un rapprochement confronte.
+    transaction.provider = PROVIDER_MTN
     db.flush()
     return contribution, transaction
 
@@ -227,3 +230,19 @@ def test_sans_rapprochement_la_consultation_repond_404(client, db: Session, make
     db.flush()
     auth_as(membre)
     assert client.get("/api/v1/admin/reconciliation").status_code == 404
+
+
+def test_une_transaction_du_double_nest_pas_confrontee(
+    db: Session, momo, cotisation_en_cours
+):
+    # Le double n'a pas de relevé. La confronter au vrai opérateur la ferait
+    # passer pour un succès sans contrepartie — c'est-à-dire pour une fraude.
+    _, transaction = cotisation_en_cours
+    transaction.provider = PROVIDER_DOUBLE
+    _vieillir(db, transaction)
+    _dire(momo, "SUCCESSFUL")
+
+    run = rapprochement.rapprocher(db, momo)
+
+    assert run.examined == 0
+    assert db.execute(select(Divergence).where(Divergence.run_id == run.id)).all() == []
