@@ -470,10 +470,23 @@ crée une tontine de cinq membres déjà entamée — deux tours versés, un tou
 collecte — pour que la page d'accueil montre la barre de tours dans ses trois
 états.
 
+Le terminal distant de Render étant réservé aux offres payantes, les scripts
+d'exploitation se lancent depuis un poste, avec `DATABASE_URL` pointant sur la
+base de production :
+
 ```bash
-# Render → service tontine-api → onglet Shell
-python scripts/semer_demo.py
+cd backend && source .venv/bin/activate
+export DATABASE_URL='<chaîne Neon directe>'
+
+python scripts/semer_demo.py                       # peupler la démonstration
+python scripts/promouvoir_equipe.py +22901691004   # ouvrir l'écran de rapprochement
+python scripts/rapprocher.py                       # rapprochement quotidien
+python scripts/purger_limites.py                   # ménage des compteurs
 ```
+
+Il n'existe volontairement aucune route pour `promouvoir_equipe` : une
+élévation de privilège qui s'obtient par un appel HTTP est une élévation de
+privilège de trop.
 
 Le script passe par les services métier, jamais par des insertions directes :
 les écritures du grand livre sont celles qu'aurait produites une vraie
