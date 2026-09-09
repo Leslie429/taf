@@ -13,6 +13,11 @@
 #   3. Après le premier déploiement, revenir poser CORS_ORIGINS et
 #      VITE_API_URL avec les URL réelles, puis redéployer le front — son URL
 #      d'API est figée à la compilation.
+#
+# Ne pas deviner ces URL : quand un nom de service est déjà pris ailleurs sur
+# Render, un suffixe est ajouté — « tontine-api-jhph.onrender.com » plutôt que
+# « tontine-api.onrender.com ». Attendre que les services existent pour lire
+# leurs URL réelles.
 
 services:
   - type: web
@@ -45,13 +50,13 @@ services:
       - key: DATABASE_URL
         sync: false
       # `fromService … property: host` ne renvoie que l'hôte, sans schéma.
-      # Exemple : https://tontine-web.onrender.com
+      # Exemple : https://tontine-web-7208.onrender.com
       - key: CORS_ORIGINS
         sync: false
       # Mobile Money. Laisser vide fait tourner l'API sur le double de test.
       # L'URL de rappel doit porter le chemin complet : MTN n'enregistre qu'un
       # hôte au provisionnement, et ne rappellerait que la racine du domaine.
-      # Exemple : https://tontine-api.onrender.com/api/v1/webhooks/momo
+      # Exemple : https://tontine-api-jhph.onrender.com/api/v1/webhooks/momo
       - key: MOMO_CALLBACK_URL
         sync: false
       - key: MOMO_COLLECTION_KEY
@@ -75,6 +80,6 @@ services:
         value: 8080
       # Figée à la compilation du bundle, Vite remplaçant les `import.meta.env`
       # par leur valeur littérale. La changer impose un redéploiement du front.
-      # Exemple : https://tontine-api.onrender.com/api/v1
+      # Exemple : https://tontine-api-jhph.onrender.com/api/v1
       - key: VITE_API_URL
         sync: false

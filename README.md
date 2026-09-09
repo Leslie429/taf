@@ -7,8 +7,8 @@ Mobile Money. Un groupe de membres cotise à chaque tour ; la cagnotte est vers�
 > Projet de démonstration technique orienté FinTech : comptabilité en partie
 > double, paiements idempotents, webhooks signés.
 
-**Démo** : <https://tontine-web.onrender.com> · **API** :
-<https://tontine-api.onrender.com/docs>
+**Démo** : <https://tontine-web-7208.onrender.com> · **API** :
+<https://tontine-api-jhph.onrender.com/docs>
 
 Le compte de démonstration entre dans une tontine déjà entamée — deux tours
 versés, un en collecte, une cotisation à régler :
@@ -409,7 +409,7 @@ accident de démonstration.
 
 ```bash
 export MOMO_DISBURSEMENT_KEY=<clé primaire du produit>
-python scripts/provisionner_momo.py --produit disbursement --hote tontine-api.onrender.com
+python scripts/provisionner_momo.py --produit disbursement --hote tontine-api-jhph.onrender.com
 ```
 
 Le script imprime la commande `fly secrets set` à exécuter. La clé d'API n'est
@@ -484,7 +484,7 @@ utilisation, et les soldes affichés se recalculent à partir d'elles.
 Sans `MOMO_SUBSCRIPTION_KEY`, l'API bascule sur le client simulé : un paiement
 part mais rien ne le confirme. Pour une démonstration en ligne, deux options —
 brancher le sandbox MTN et déclarer l'URL de callback
-`https://tontine-api.onrender.com/api/v1/webhooks/momo`, ou laisser le client simulé et confirmer
+`https://tontine-api-jhph.onrender.com/api/v1/webhooks/momo`, ou laisser le client simulé et confirmer
 les paiements avec
 [`scripts/confirmer_paiements.py`](backend/scripts/confirmer_paiements.py).
 
