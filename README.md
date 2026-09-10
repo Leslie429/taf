@@ -456,7 +456,9 @@ courir deux migrations en concurrence sur la même table de version.
 
 ### Ce qu'il faut vérifier après un déploiement
 
-1. `GET /health` répond `{"status": "ok"}`
+1. `GET /health` répond `ok` **et nomme l'opérateur retenu pour chaque
+   produit** — `fake` y signale une clé oubliée, avant qu'un paiement ne parte
+   chez le double
 2. `/docs` s'ouvre et liste les 20 opérations
 3. Une inscription depuis le front aboutit — sinon, `CORS_ORIGINS` ne
    correspond pas exactement à l'origine du navigateur (schéma compris, sans

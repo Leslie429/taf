@@ -119,3 +119,19 @@ def test_activation_expose_les_cycles(client: TestClient, make_user, auth_as):
     # Un groupe démarré n'accepte plus de nouveau membre : l'ordre est figé.
     tardif = client.post(f"{API}/groups/{group_id}/members", json={"phone": invite.phone})
     assert tardif.status_code == 409
+
+
+def test_la_sante_dit_qui_traite_les_paiements(client: TestClient):
+    # Sans ce témoin, une clé d'opérateur oubliée ne se voit qu'au premier
+    # paiement parti chez le double — c'est-à-dire trop tard.
+    corps = client.get("/health").json()
+    assert corps["status"] == "ok"
+    assert set(corps["operators"]) == {"collection", "disbursement"}
+
+
+def test_la_sante_ne_revele_aucune_cle(client: TestClient):
+    from app.core.config import settings
+
+    brut = client.get("/health").text
+    for secret in (settings.jwt_secret, settings.momo_callback_secret):
+        assert secret not in brut
