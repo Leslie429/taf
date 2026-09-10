@@ -134,6 +134,16 @@ opérateur rejouera son callback. Les deux cas doivent rester sans effet.
   l'échec, et toute nouvelle demande retomberait dessus. `next_attempt_key`
   n'ouvre un rang suivant que si le dernier essai a échoué ; tant qu'un essai
   est en cours ou réussi, il est renvoyé tel quel.
+- **Un délai dépassé n'est pas un refus.** Un jeton refusé ou une connexion
+  qui n'aboutit jamais : rien n'est parti, l'essai est clos en échec avec la
+  raison donnée par l'opérateur. Mais une demande partie dont la réponse s'est
+  perdue a peut-être été exécutée. La clore ouvrirait un essai suivant, sous une
+  autre référence, que l'opérateur prendrait pour un second versement. Elle
+  reste donc en cours, sous sa référence d'origine, et c'est le callback ou le
+  rapprochement qui tranchent — en interrogeant l'opérateur sur cette référence.
+- Dans aucun de ces cas l'incident ne remonte en erreur 500. Une exception non
+  rattrapée annulerait la requête, et avec elle la transaction déjà inscrite au
+  grand livre : la trace promise disparaîtrait au moment précis où elle sert.
 - Deux requêtes concurrentes sont arbitrées par la base : celle qui perd la
   course sur la contrainte d'unicité récupère la transaction gagnante.
 - L'identifiant de la transaction sert de `X-Reference-Id` à l'appel MTN, ce qui

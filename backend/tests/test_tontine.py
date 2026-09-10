@@ -1,5 +1,6 @@
 from datetime import date
 
+import httpx
 import pytest
 from sqlalchemy.orm import Session
 
@@ -12,7 +13,7 @@ from app.models.enums import (
 )
 from app.models.tontine import Membership, TontineGroup
 from app.services import ledger, tontine
-from app.services.momo import FakeMoMoClient
+from app.services.momo import FakeMoMoClient, MoMoError
 from app.services.operateurs import Operateurs
 
 
@@ -183,3 +184,107 @@ def test_versement_vide_la_cagnotte(db: Session, groupe, momo: FakeMoMoClient, r
         db, ledger.AccountKind.GROUP_POT, group.id, "pot", group.currency
     )
     assert ledger.balance_minor(db, pot.id) == 0
+
+
+
+def _financer(db: Session, groupe, reseau):
+    """Mène le premier cycle jusqu'à « financé », prêt à être versé."""
+    group, membres = groupe
+    cycle = tontine.activate_group(db, group)[0]
+    for contribution in cycle.contributions:
+        membership = db.get(Membership, contribution.membership_id)
+        payeur = next(m for m in membres if m.id == membership.user_id)
+        tx = tontine.initiate_contribution(
+            db, contribution=contribution, payer=payeur, reseau=reseau
+        )
+        tontine.confirm_contribution(db, tx, success=True)
+    return group, cycle
+
+
+def _lever(exc: Exception):
+    def appel(**_):
+        raise exc
+
+    return appel
+
+
+def test_un_jeton_refuse_clot_lessai_sans_rien_effacer(
+    db: Session, groupe, momo: FakeMoMoClient, reseau
+):
+    # Avant ce correctif, le refus devenait une erreur 500 et l'annulation de
+    # la requête effaçait la transaction : aucune trace, aucune raison.
+    group, cycle = _financer(db, groupe, reseau)
+    momo.transfer = _lever(MoMoError("Authentification disbursement refusée : 401"))
+
+    tx = tontine.pay_out_cycle(db, cycle, reseau)
+
+    assert tx.status == TransactionStatus.FAILED
+    assert "401" in tx.failure_reason
+    assert cycle.status == CycleStatus.FUNDED
+    pot = ledger.get_or_create_account(
+        db, ledger.AccountKind.GROUP_POT, group.id, "pot", group.currency
+    )
+    # Un versement refusé n'a rien retiré de la cagnotte.
+    assert ledger.balance_minor(db, pot.id) == 15000
+
+
+def test_apres_un_refus_lessai_suivant_repart_chez_loperateur(
+    db: Session, groupe, momo: FakeMoMoClient, reseau
+):
+    _, cycle = _financer(db, groupe, reseau)
+    original = momo.transfer
+    momo.transfer = _lever(MoMoError("refus"))
+    premier = tontine.pay_out_cycle(db, cycle, reseau)
+
+    momo.transfer = original
+    second = tontine.pay_out_cycle(db, cycle, reseau)
+
+    assert second.id != premier.id
+    assert second.status == TransactionStatus.PROCESSING
+
+
+def test_une_connexion_qui_naboutit_pas_clot_la_cotisation(
+    db: Session, groupe, momo: FakeMoMoClient, reseau
+):
+    group, membres = groupe
+    contribution = tontine.activate_group(db, group)[0].contributions[0]
+    membership = db.get(Membership, contribution.membership_id)
+    payeur = next(m for m in membres if m.id == membership.user_id)
+    momo.request_to_pay = _lever(httpx.ConnectError("injoignable"))
+
+    tx = tontine.initiate_contribution(
+        db, contribution=contribution, payer=payeur, reseau=reseau
+    )
+
+    assert tx.status == TransactionStatus.FAILED
+    assert contribution.status == ContributionStatus.FAILED
+
+
+def test_un_delai_depasse_ne_vaut_pas_refus(
+    db: Session, groupe, momo: FakeMoMoClient, reseau
+):
+    # La demande est partie, la réponse s'est perdue : l'opérateur a peut-être
+    # exécuté le versement. Clore l'essai en ouvrirait un second, sous une
+    # autre référence — c'est-à-dire un second versement.
+    _, cycle = _financer(db, groupe, reseau)
+    momo.transfer = _lever(httpx.ReadTimeout("réponse perdue"))
+
+    tx = tontine.pay_out_cycle(db, cycle, reseau)
+
+    assert tx.status == TransactionStatus.PROCESSING
+    assert tx.failure_reason is None
+
+
+def test_apres_un_delai_depasse_le_second_clic_ne_reverse_pas(
+    db: Session, groupe, momo: FakeMoMoClient, reseau
+):
+    # Le cœur du risque : un utilisateur impatient relance le versement.
+    _, cycle = _financer(db, groupe, reseau)
+    momo.transfer = _lever(httpx.ReadTimeout("réponse perdue"))
+    premier = tontine.pay_out_cycle(db, cycle, reseau)
+
+    appels_avant = len(momo.calls)
+    second = tontine.pay_out_cycle(db, cycle, reseau)
+
+    assert second.id == premier.id
+    assert len(momo.calls) == appels_avant

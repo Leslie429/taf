@@ -9,6 +9,7 @@ from calendar import monthrange
 from datetime import date, timedelta
 from uuid import UUID, uuid4
 
+import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -27,6 +28,7 @@ from app.models.ledger import Transaction
 from app.models.tontine import Contribution, Cycle, Membership, TontineGroup
 from app.models.user import User
 from app.services import ledger
+from app.services.momo import MoMoError
 from app.services.operateurs import Operateurs
 
 # Conservé pour le journal des callbacks, qui identifie l'opérateur et non le
@@ -98,6 +100,39 @@ def pot_total_minor(group: TontineGroup, member_count: int) -> int:
     return group.contribution_minor * member_count
 
 
+# Ces incidents surviennent avant que la demande ne quitte nos serveurs : le
+# jeton refusé par l'opérateur, une connexion qui n'aboutit jamais. Rien n'est
+# parti, l'essai peut être clos en échec et un suivant ouvert sans risque.
+_JAMAIS_PARTI = (MoMoError, httpx.ConnectError, httpx.ConnectTimeout)
+
+
+def _clore_sur_incident(db: Session, transaction: Transaction, exc: Exception) -> bool:
+    """Range la transaction après un incident d'appel, sans jamais l'effacer.
+
+    Laisser l'exception remonter annulerait la requête, et avec elle la
+    transaction déjà inscrite au grand livre — précisément la trace que ce
+    service promet de garder quand le réseau tombe entre les deux.
+
+    Renvoie True si l'essai est clos en échec, False s'il reste à vérifier.
+
+    **Un délai dépassé n'est pas un refus.** Une demande partie dont la réponse
+    s'est perdue a peut-être été exécutée. La clore ouvrirait un essai suivant,
+    sous une autre référence, que l'opérateur prendrait pour un second
+    versement. Elle reste donc en cours, sous sa référence d'origine : le
+    callback ou le rapprochement trancheront en interrogeant l'opérateur.
+    """
+    if isinstance(exc, _JAMAIS_PARTI):
+        ledger.transition(
+            db,
+            transaction,
+            TransactionStatus.FAILED,
+            failure_reason=(str(exc) or type(exc).__name__)[:255],
+        )
+        return True
+    ledger.transition(db, transaction, TransactionStatus.PROCESSING)
+    return False
+
+
 def initiate_contribution(
     db: Session,
     *,
@@ -155,12 +190,18 @@ def initiate_contribution(
     contribution.transaction_id = transaction.id
     contribution.status = ContributionStatus.PROCESSING
 
-    result = momo.request_to_pay(
-        reference=transaction.id,
-        amount_minor=contribution.amount_minor,
-        payer_phone=payer.phone,
-        note=f"Cotisation {group.name} — cycle {cycle.index + 1}",
-    )
+    try:
+        result = momo.request_to_pay(
+            reference=transaction.id,
+            amount_minor=contribution.amount_minor,
+            payer_phone=payer.phone,
+            note=f"Cotisation {group.name} — cycle {cycle.index + 1}",
+        )
+    except (MoMoError, httpx.HTTPError) as exc:
+        if _clore_sur_incident(db, transaction, exc):
+            contribution.status = ContributionStatus.FAILED
+        db.flush()
+        return transaction
     transaction.external_id = result.external_id
 
     if result.accepted:
@@ -276,12 +317,17 @@ def pay_out_cycle(db: Session, cycle: Cycle, reseau: Operateurs) -> Transaction:
     if transaction.status != TransactionStatus.PENDING:
         return transaction
 
-    result = momo.transfer(
-        reference=transaction.id,
-        amount_minor=amount,
-        payee_phone=beneficiary.phone,
-        note=f"Versement {group.name} — cycle {cycle.index + 1}",
-    )
+    try:
+        result = momo.transfer(
+            reference=transaction.id,
+            amount_minor=amount,
+            payee_phone=beneficiary.phone,
+            note=f"Versement {group.name} — cycle {cycle.index + 1}",
+        )
+    except (MoMoError, httpx.HTTPError) as exc:
+        _clore_sur_incident(db, transaction, exc)
+        db.flush()
+        return transaction
     transaction.external_id = result.external_id
 
     if result.accepted:
