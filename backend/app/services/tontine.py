@@ -5,6 +5,7 @@ on engendre tous les cycles à venir, un par membre. Chaque cycle porte autant d
 cotisations qu'il y a de membres, et désigne un bénéficiaire.
 """
 
+import logging
 from calendar import monthrange
 from datetime import date, timedelta
 from uuid import UUID, uuid4
@@ -100,6 +101,8 @@ def pot_total_minor(group: TontineGroup, member_count: int) -> int:
     return group.contribution_minor * member_count
 
 
+journal = logging.getLogger(__name__)
+
 # Ces incidents surviennent avant que la demande ne quitte nos serveurs : le
 # jeton refusé par l'opérateur, une connexion qui n'aboutit jamais. Rien n'est
 # parti, l'essai peut être clos en échec et un suivant ouvert sans risque.
@@ -121,7 +124,13 @@ def _clore_sur_incident(db: Session, transaction: Transaction, exc: Exception) -
     versement. Elle reste donc en cours, sous sa référence d'origine : le
     callback ou le rapprochement trancheront en interrogeant l'opérateur.
     """
+    # Rattraper l'exception efface sa nature : sans cette ligne de journal,
+    # on sait qu'un incident a eu lieu, jamais lequel.
     if isinstance(exc, _JAMAIS_PARTI):
+        journal.warning(
+            "Incident avant envoi sur %s, essai clos : %s %s",
+            transaction.reference, type(exc).__name__, exc,
+        )
         ledger.transition(
             db,
             transaction,
@@ -129,6 +138,10 @@ def _clore_sur_incident(db: Session, transaction: Transaction, exc: Exception) -
             failure_reason=(str(exc) or type(exc).__name__)[:255],
         )
         return True
+    journal.warning(
+        "Incident après envoi sur %s, issue inconnue, laissée en cours : %s %s",
+        transaction.reference, type(exc).__name__, exc,
+    )
     ledger.transition(db, transaction, TransactionStatus.PROCESSING)
     return False
 

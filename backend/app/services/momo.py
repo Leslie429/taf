@@ -88,11 +88,22 @@ class MtnMoMoClient:
         if product in self._tokens:
             return self._tokens[product]
 
-        response = self._client.post(
-            f"/{product}/token/",
-            auth=(settings.momo_api_user, settings.momo_api_key),
-            headers={"Ocp-Apim-Subscription-Key": settings.momo_key_for(product)},
-        )
+        # Le jeton se demande avant que la requête de paiement ne parte : un
+        # incident ici, quel qu'il soit, garantit que rien n'a été envoyé. Il
+        # devient une MoMoError, que l'appelant sait pouvoir clore sans risque.
+        # Laissé en erreur réseau brute, un délai dépassé sur le jeton serait
+        # indiscernable d'un délai dépassé sur le virement lui-même — le seul
+        # cas où l'opérateur a peut-être exécuté l'ordre.
+        try:
+            response = self._client.post(
+                f"/{product}/token/",
+                auth=(settings.momo_api_user, settings.momo_api_key),
+                headers={"Ocp-Apim-Subscription-Key": settings.momo_key_for(product)},
+            )
+        except httpx.HTTPError as exc:
+            raise MoMoError(
+                f"Jeton {product} indisponible : {type(exc).__name__} {exc}"
+            ) from exc
         if response.status_code >= 400:
             raise MoMoError(f"Authentification {product} refusée : {response.text}")
 

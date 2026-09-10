@@ -159,3 +159,52 @@ def test_sans_url_configuree_aucun_en_tete_de_rappel(monkeypatch):
     monkeypatch.setattr(client, "_token", lambda produit: "jeton")
 
     assert "X-Callback-Url" not in client._headers("disbursement", uuid.uuid4(), rappel=True)
+
+
+def _client_simule(monkeypatch, repondre):
+    """Un client MTN réel, branché sur un transport qui simule l'opérateur."""
+    import httpx
+
+    monkeypatch.setattr(
+        "app.services.momo.settings",
+        Settings(momo_disbursement_key="cle", momo_api_user="u", momo_api_key="p"),
+    )
+    transport = httpx.MockTransport(repondre)
+    return MtnMoMoClient(httpx.Client(transport=transport, base_url="https://mtn.test"))
+
+
+def test_un_delai_depasse_sur_le_jeton_signifie_que_rien_nest_parti(monkeypatch):
+    # Constaté sur Render : le jeton a expiré, le virement n'est jamais parti,
+    # et l'essai est pourtant resté « en cours » — faute de savoir à quelle
+    # phase l'incident avait eu lieu.
+    import httpx
+
+    from app.services.momo import MoMoError
+
+    def repondre(requete):
+        if requete.url.path.endswith("/token/"):
+            raise httpx.ReadTimeout("jeton lent", request=requete)
+        return httpx.Response(202)
+
+    client = _client_simule(monkeypatch, repondre)
+    with pytest.raises(MoMoError, match="Jeton disbursement indisponible"):
+        client.transfer(
+            reference=uuid.uuid4(), amount_minor=1000, payee_phone="+22901691004", note="x"
+        )
+
+
+def test_un_delai_depasse_sur_le_virement_reste_ambigu(monkeypatch):
+    # Là, l'ordre est parti : l'opérateur l'a peut-être exécuté. L'erreur doit
+    # rester une erreur réseau, que l'appelant ne clôt pas.
+    import httpx
+
+    def repondre(requete):
+        if requete.url.path.endswith("/token/"):
+            return httpx.Response(200, json={"access_token": "jeton"})
+        raise httpx.ReadTimeout("virement lent", request=requete)
+
+    client = _client_simule(monkeypatch, repondre)
+    with pytest.raises(httpx.ReadTimeout):
+        client.transfer(
+            reference=uuid.uuid4(), amount_minor=1000, payee_phone="+22901691004", note="x"
+        )

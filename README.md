@@ -134,13 +134,18 @@ opérateur rejouera son callback. Les deux cas doivent rester sans effet.
   l'échec, et toute nouvelle demande retomberait dessus. `next_attempt_key`
   n'ouvre un rang suivant que si le dernier essai a échoué ; tant qu'un essai
   est en cours ou réussi, il est renvoyé tel quel.
-- **Un délai dépassé n'est pas un refus.** Un jeton refusé ou une connexion
-  qui n'aboutit jamais : rien n'est parti, l'essai est clos en échec avec la
-  raison donnée par l'opérateur. Mais une demande partie dont la réponse s'est
-  perdue a peut-être été exécutée. La clore ouvrirait un essai suivant, sous une
+- **Un délai dépassé n'est pas un refus — et c'est la phase qui tranche, pas
+  le type d'erreur.** Tout incident pendant l'obtention du jeton, délai
+  compris, survient avant que l'ordre ne parte : l'essai est clos en échec avec
+  la raison donnée. Une première version jugeait sur le type d'erreur, et
+  laissait en cours un versement dont le jeton avait expiré — que l'opérateur
+  n'avait donc jamais reçu. Mais une demande de paiement partie dont la réponse
+  s'est perdue a peut-être été exécutée. La clore ouvrirait un essai suivant, sous une
   autre référence, que l'opérateur prendrait pour un second versement. Elle
   reste donc en cours, sous sa référence d'origine, et c'est le callback ou le
   rapprochement qui tranchent — en interrogeant l'opérateur sur cette référence.
+- Chaque incident est journalisé avec sa nature. Le rattraper sans le
+  journaliser effacerait la seule preuve de ce qui s'est passé.
 - Dans aucun de ces cas l'incident ne remonte en erreur 500. Une exception non
   rattrapée annulerait la requête, et avec elle la transaction déjà inscrite au
   grand livre : la trace promise disparaîtrait au moment précis où elle sert.
