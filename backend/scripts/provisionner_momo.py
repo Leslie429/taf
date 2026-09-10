@@ -86,11 +86,14 @@ def main() -> int:
     print(f"Utilisateur d'API créé pour « {args.produit} ».")
     print(f"  hôte de callback déclaré : {verification.json().get('providerCallbackHost', '?')}")
     print()
-    print("À poser en secret — la clé d'API ne sera plus jamais affichée :")
+    print("À poser dans les variables d'environnement de l'hébergeur —")
+    print("la clé d'API ne sera plus jamais affichée :")
     print()
-    print("  fly secrets set --stage -a tontine-api \\")
-    print(f"    MOMO_API_USER='{identifiant}' \\")
-    print(f"    MOMO_API_KEY='{cle_api}'")
+    print(f"  MOMO_API_USER = {identifiant}")
+    print(f"  MOMO_API_KEY  = {cle_api}")
+    print()
+    print("Valeurs brutes, sans guillemets : les guillemets sont une syntaxe de")
+    print("shell, pas une partie de la valeur.")
     return 0
 
 
