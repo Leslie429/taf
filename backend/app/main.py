@@ -1,3 +1,4 @@
+import os
 from typing import Any
 
 from fastapi import FastAPI
@@ -48,5 +49,17 @@ def health() -> dict[str, Any]:
         "operators": {
             produit: operateurs.pour_numero("").provider_for(produit)
             for produit in ("collection", "disbursement")
+        },
+        # Les noms des variables Mobile Money vues par le processus, et pour
+        # chacune si elle porte une valeur. Jamais la valeur elle-même.
+        #
+        # Sans ce témoin, trois pannes très différentes se ressemblent : une
+        # variable absente, une variable vide, et une variable écrite sous un
+        # nom légèrement fautif. Aucune ne se distingue depuis l'extérieur, et
+        # un hébergeur sans terminal distant ne permet pas d'aller voir.
+        "momo_env": {
+            nom: bool(valeur.strip())
+            for nom, valeur in sorted(os.environ.items())
+            if nom.startswith("MOMO_")
         },
     }

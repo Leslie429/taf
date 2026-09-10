@@ -135,3 +135,16 @@ def test_la_sante_ne_revele_aucune_cle(client: TestClient):
     brut = client.get("/health").text
     for secret in (settings.jwt_secret, settings.momo_callback_secret):
         assert secret not in brut
+
+
+def test_la_sante_liste_les_noms_momo_sans_les_valeurs(client: TestClient, monkeypatch):
+    # Une variable absente, vide, ou écrite sous un nom fautif se ressemblent
+    # toutes de l'extérieur. Le témoin les distingue.
+    monkeypatch.setenv("MOMO_DISBURSEMENT_KEY", "une-cle-secrete")
+    monkeypatch.setenv("MOMO_COLLECTION_KEY", "   ")
+
+    corps = client.get("/health").json()
+
+    assert corps["momo_env"]["MOMO_DISBURSEMENT_KEY"] is True
+    assert corps["momo_env"]["MOMO_COLLECTION_KEY"] is False
+    assert "une-cle-secrete" not in client.get("/health").text
