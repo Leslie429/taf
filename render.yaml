@@ -42,8 +42,15 @@ services:
         value: production
       - key: JWT_SECRET
         generateValue: true
+      # Volontairement choisi, et non engendré. Tant que le produit Collection
+      # du sandbox MTN est saturé, l'encaissement tourne sur le double, et
+      # c'est `scripts/confirmer_paiements.py` qui joue l'opérateur — depuis un
+      # poste, le terminal distant étant réservé aux offres payantes. Un secret
+      # engendré que personne ne connaît rendrait ce script inutilisable, et
+      # aucune cotisation ne pourrait plus être confirmée.
+      #   openssl rand -hex 32
       - key: MOMO_CALLBACK_SECRET
-        generateValue: true
+        sync: false
       # Chaîne de connexion Neon, branche production, connexion DIRECTE — pas
       # celle du pooler : PgBouncer en mode transaction rejette les requêtes
       # préparées de psycopg 3, et Alembic ne migre pas à travers un pooler.

@@ -488,6 +488,13 @@ Il n'existe volontairement aucune route pour `promouvoir_equipe` : une
 élévation de privilège qui s'obtient par un appel HTTP est une élévation de
 privilège de trop.
 
+`MOMO_CALLBACK_SECRET` se choisit, il ne s'engendre pas. Tant que Collection
+tourne sur le double, c'est
+[`scripts/confirmer_paiements.py`](backend/scripts/confirmer_paiements.py) qui
+joue l'opérateur et signe les callbacks — depuis un poste. Un secret engendré
+par l'hébergeur, que personne ne connaît, rendrait ce script inutilisable et
+aucune cotisation ne pourrait plus être confirmée.
+
 Le script passe par les services métier, jamais par des insertions directes :
 les écritures du grand livre sont celles qu'aurait produites une vraie
 utilisation, et les soldes affichés se recalculent à partir d'elles.
