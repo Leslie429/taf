@@ -17,6 +17,9 @@ class TransactionOut(BaseModel):
     currency: str
     external_id: str | None
     failure_reason: str | None
+    # Renseigné même quand la transaction n'a pas échoué : une transaction
+    # bloquée en cours doit pouvoir dire pourquoi.
+    last_incident: str | None
 
 
 class MoMoCallback(BaseModel):

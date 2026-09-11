@@ -65,6 +65,11 @@ class Transaction(Base, UUIDMixin, TimestampMixin):
     provider: Mapped[str | None] = mapped_column(String(30), nullable=True)
     external_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
     failure_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # La nature du dernier incident d'appel à l'opérateur, même quand la
+    # transaction n'a pas échoué pour autant. Une transaction bloquée en cours
+    # doit dire pourquoi : sans cela, l'explication n'existe que dans les
+    # journaux de l'hébergeur, hors de portée d'un rapprochement.
+    last_incident: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     entries: Mapped[list["LedgerEntry"]] = relationship(
         back_populates="transaction", cascade="all, delete-orphan"

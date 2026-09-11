@@ -126,21 +126,23 @@ def _clore_sur_incident(db: Session, transaction: Transaction, exc: Exception) -
     """
     # Rattraper l'exception efface sa nature : sans cette ligne de journal,
     # on sait qu'un incident a eu lieu, jamais lequel.
+    incident = f"{type(exc).__name__} : {exc}"[:255]
+    transaction.last_incident = incident
+
     if isinstance(exc, _JAMAIS_PARTI):
         journal.warning(
-            "Incident avant envoi sur %s, essai clos : %s %s",
-            transaction.reference, type(exc).__name__, exc,
+            "Incident avant envoi sur %s, essai clos : %s", transaction.reference, incident
         )
         ledger.transition(
             db,
             transaction,
             TransactionStatus.FAILED,
-            failure_reason=(str(exc) or type(exc).__name__)[:255],
+            failure_reason=incident,
         )
         return True
     journal.warning(
-        "Incident après envoi sur %s, issue inconnue, laissée en cours : %s %s",
-        transaction.reference, type(exc).__name__, exc,
+        "Incident après envoi sur %s, issue inconnue, laissée en cours : %s",
+        transaction.reference, incident,
     )
     ledger.transition(db, transaction, TransactionStatus.PROCESSING)
     return False

@@ -288,3 +288,31 @@ def test_apres_un_delai_depasse_le_second_clic_ne_reverse_pas(
 
     assert second.id == premier.id
     assert len(momo.calls) == appels_avant
+
+
+def test_un_incident_ambigu_laisse_sa_nature_sur_la_transaction(
+    db: Session, groupe, momo: FakeMoMoClient, reseau
+):
+    # L'essai reste en cours — il n'a pas échoué — mais il doit dire pourquoi.
+    # Sans cela, l'explication n'existe que dans les journaux de l'hébergeur.
+    _, cycle = _financer(db, groupe, reseau)
+    momo.transfer = _lever(httpx.ReadTimeout("réponse perdue"))
+
+    tx = tontine.pay_out_cycle(db, cycle, reseau)
+
+    assert tx.status == TransactionStatus.PROCESSING
+    assert tx.failure_reason is None
+    assert "ReadTimeout" in tx.last_incident
+
+
+def test_un_incident_avant_envoi_est_consigne_aussi(
+    db: Session, groupe, momo: FakeMoMoClient, reseau
+):
+    _, cycle = _financer(db, groupe, reseau)
+    momo.transfer = _lever(MoMoError("Jeton disbursement indisponible : ReadTimeout"))
+
+    tx = tontine.pay_out_cycle(db, cycle, reseau)
+
+    assert tx.status == TransactionStatus.FAILED
+    assert "MoMoError" in tx.last_incident
+    assert tx.failure_reason == tx.last_incident
