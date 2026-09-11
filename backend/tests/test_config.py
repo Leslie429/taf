@@ -75,3 +75,14 @@ def test_la_cle_specifique_lemporte_sur_le_repli():
 
 def test_sans_aucune_cle_le_produit_na_pas_de_cle():
     assert Settings().momo_key_for("collection") == ""
+
+
+def test_les_blancs_de_bord_des_valeurs_momo_sont_retires():
+    # Un retour à la ligne collé dans un champ de formulaire est invisible et
+    # fatal : httpx refuse de construire un en-tête HTTP qui en contient.
+    settings = Settings(
+        momo_callback_url="https://api.test/api/v1/webhooks/momo\n",
+        momo_disbursement_key="  cle  ",
+    )
+    assert settings.momo_callback_url == "https://api.test/api/v1/webhooks/momo"
+    assert settings.momo_key_for("disbursement") == "cle"

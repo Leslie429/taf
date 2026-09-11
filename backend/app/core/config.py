@@ -69,6 +69,29 @@ class Settings(BaseSettings):
         }.get(product, "")
         return specifique or self.momo_subscription_key
 
+    @field_validator(
+        "momo_base_url",
+        "momo_subscription_key",
+        "momo_collection_key",
+        "momo_disbursement_key",
+        "momo_api_user",
+        "momo_api_key",
+        "momo_target_environment",
+        "momo_callback_url",
+        "momo_callback_secret",
+    )
+    @classmethod
+    def _nettoyer(cls, valeur: str) -> str:
+        """Retire les blancs de bord des valeurs Mobile Money.
+
+        Un retour à la ligne collé par mégarde dans un champ de formulaire est
+        invisible à l'œil et fatal : httpx refuse de construire un en-tête HTTP
+        qui en contient — à raison, c'est la faille classique d'injection
+        d'en-tête. Un versement a ainsi échoué quatre fois sans jamais quitter
+        nos serveurs, l'URL de rappel se terminant par un « \n ».
+        """
+        return valeur.strip()
+
     @field_validator("database_url")
     @classmethod
     def _forcer_le_pilote(cls, url: str) -> str:

@@ -104,9 +104,16 @@ def pot_total_minor(group: TontineGroup, member_count: int) -> int:
 journal = logging.getLogger(__name__)
 
 # Ces incidents surviennent avant que la demande ne quitte nos serveurs : le
-# jeton refusé par l'opérateur, une connexion qui n'aboutit jamais. Rien n'est
-# parti, l'essai peut être clos en échec et un suivant ouvert sans risque.
-_JAMAIS_PARTI = (MoMoError, httpx.ConnectError, httpx.ConnectTimeout)
+# jeton refusé par l'opérateur, une connexion qui n'aboutit jamais, une requête
+# que le client refuse même de construire — un en-tête contenant un retour à la
+# ligne, par exemple. Rien n'est parti, l'essai peut être clos en échec et un
+# suivant ouvert sans risque.
+_JAMAIS_PARTI = (
+    MoMoError,
+    httpx.ConnectError,
+    httpx.ConnectTimeout,
+    httpx.LocalProtocolError,
+)
 
 
 def _clore_sur_incident(db: Session, transaction: Transaction, exc: Exception) -> bool:

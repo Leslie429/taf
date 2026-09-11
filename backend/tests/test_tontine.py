@@ -316,3 +316,17 @@ def test_un_incident_avant_envoi_est_consigne_aussi(
     assert tx.status == TransactionStatus.FAILED
     assert "MoMoError" in tx.last_incident
     assert tx.failure_reason == tx.last_incident
+
+
+def test_une_requete_impossible_a_construire_clot_lessai(
+    db: Session, groupe, momo: FakeMoMoClient, reseau
+):
+    # httpx lève avant tout envoi quand un en-tête est illégal : rien n'est
+    # parti, l'essai doit être clos pour qu'un suivant reparte.
+    _, cycle = _financer(db, groupe, reseau)
+    momo.transfer = _lever(httpx.LocalProtocolError("Illegal header value"))
+
+    tx = tontine.pay_out_cycle(db, cycle, reseau)
+
+    assert tx.status == TransactionStatus.FAILED
+    assert "LocalProtocolError" in tx.last_incident
