@@ -46,6 +46,12 @@ def health() -> dict[str, Any]:
     return {
         "status": "ok",
         "environment": settings.environment,
+        # Quel commit tourne réellement. Sans lui, un correctif déployé et un
+        # correctif en attente de déploiement produisent les mêmes symptômes,
+        # et le diagnostic tourne en rond. L'hébergeur renseigne la variable.
+        "commit": (
+            os.environ.get("RENDER_GIT_COMMIT") or os.environ.get("GIT_COMMIT") or "inconnu"
+        )[:7],
         "operators": {
             produit: operateurs.pour_numero("").provider_for(produit)
             for produit in ("collection", "disbursement")

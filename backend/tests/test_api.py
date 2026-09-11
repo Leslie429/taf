@@ -148,3 +148,10 @@ def test_la_sante_liste_les_noms_momo_sans_les_valeurs(client: TestClient, monke
     assert corps["momo_env"]["MOMO_DISBURSEMENT_KEY"] is True
     assert corps["momo_env"]["MOMO_COLLECTION_KEY"] is False
     assert "une-cle-secrete" not in client.get("/health").text
+
+
+def test_la_sante_nomme_le_commit_deploye(client: TestClient, monkeypatch):
+    # Un correctif déployé et un correctif en attente donnent les mêmes
+    # symptômes : sans ce témoin, le diagnostic tourne en rond.
+    monkeypatch.setenv("RENDER_GIT_COMMIT", "abcdef1234567890")
+    assert client.get("/health").json()["commit"] == "abcdef1"
