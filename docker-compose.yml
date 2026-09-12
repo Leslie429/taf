@@ -18,23 +18,11 @@ services:
       timeout: 3s
       retries: 10
 
-  redis:
-    image: redis:7-alpine
-    ports:
-      # 6380 côté hôte : le Redis du poste occupe déjà 6379.
-      - "6380:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-
   api:
     build: ./backend
     env_file: .env
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-tontine}:${POSTGRES_PASSWORD:-tontine}@db:5432/${POSTGRES_DB:-tontine}
-      REDIS_URL: redis://redis:6379/0
       CORS_ORIGINS: http://localhost:5173
     command: >
       sh -c "alembic upgrade head &&
@@ -45,8 +33,6 @@ services:
       - "8000:8000"
     depends_on:
       db:
-        condition: service_healthy
-      redis:
         condition: service_healthy
 
   web:
