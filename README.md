@@ -10,8 +10,9 @@ Mobile Money. Un groupe de membres cotise à chaque tour ; la cagnotte est vers�
 **Démo** : <https://tontine-web-7208.onrender.com> · **API** :
 <https://tontine-api-jhph.onrender.com/docs>
 
-Le compte de démonstration entre dans une tontine déjà entamée — deux tours
-versés, un en collecte, une cotisation à régler :
+Le compte de démonstration entre dans une tontine déjà entamée — des tours
+versés, un en collecte, une cotisation à régler. La démonstration est vivante :
+les tours avancent à mesure qu'on s'en sert.
 
 | | |
 | --- | --- |
