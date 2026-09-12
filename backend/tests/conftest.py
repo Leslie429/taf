@@ -8,6 +8,11 @@ os.environ.setdefault(
     "DATABASE_URL", "postgresql+psycopg://tontine:tontine@localhost:5432/tontine_test"
 )
 os.environ.setdefault("JWT_SECRET", "secret-de-test")
+# Les tests montent l'application avec son cycle de vie : sans ces zéros,
+# l'ordonnanceur tournerait en fond pendant toute la suite et trancherait des
+# transactions sous le nez des tests qui les observent.
+os.environ.setdefault("RAPPROCHEMENT_INTERVALLE_SECONDES", "0")
+os.environ.setdefault("DOUBLE_INTERVALLE_SECONDES", "0")
 
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import create_engine  # noqa: E402

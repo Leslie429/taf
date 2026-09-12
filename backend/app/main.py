@@ -1,4 +1,8 @@
+import asyncio
+import logging
 import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI
@@ -7,6 +11,42 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.deps import get_operateurs
 from app.api.routes import admin, auth, groups, history, payments
 from app.core.config import settings
+from app.services import ordonnanceur
+
+# Uvicorn ne configure que ses propres journaux. Sans cette ligne, tout ce que
+# l'application consigne — à commencer par les échecs de l'ordonnanceur, qui
+# tourne sans personne pour le regarder — n'arrive nulle part. Sur un hébergeur
+# dont le terminal distant est payant, le journal est le seul témoin.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s  %(levelname)-8s %(name)s  %(message)s",
+)
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    """Les tâches de fond vivent exactement le temps de l'application.
+
+    Le réseau d'opérateurs est relu à chaque passe plutôt que capturé ici :
+    c'est la configuration du moment qui doit décider, pas celle du démarrage.
+    """
+    taches: list[asyncio.Task[None] | None] = [
+        ordonnanceur.demarrer(
+            "double",
+            settings.double_intervalle_secondes,
+            ordonnanceur.passe_du_double,
+        ),
+        ordonnanceur.demarrer(
+            "rapprochement",
+            settings.rapprochement_intervalle_secondes,
+            lambda: ordonnanceur.passe_de_rapprochement(get_operateurs()),
+        ),
+    ]
+    try:
+        yield
+    finally:
+        await ordonnanceur.arreter(taches)
+
 
 app = FastAPI(
     title=settings.app_name,
@@ -16,6 +56,7 @@ app = FastAPI(
     # `/docs` est ce qu'un recruteur ouvrira en premier.
     docs_url="/docs",
     redoc_url=None,
+    lifespan=lifespan,
 )
 
 app.add_middleware(

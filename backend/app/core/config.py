@@ -18,7 +18,6 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173"
 
     database_url: str = "postgresql+psycopg://tontine:tontine@localhost:5432/tontine"
-    redis_url: str = "redis://localhost:6379/0"
 
     # Auth
     jwt_secret: str = "dev-secret-a-changer-en-production"
@@ -57,6 +56,15 @@ class Settings(BaseSettings):
     # par le régulateur et changent : elles se règlent, elles ne se codent pas.
     operator_prefixes: str = ""
     operator_default: str = "mtn_momo"
+
+    # Ce que l'application entreprend d'elle-même, en secondes. Zéro désactive.
+    #
+    # Le rapprochement interroge les opérateurs : il se paie en appels sortants
+    # et n'a pas besoin d'être fréquent. Trancher les transactions du double ne
+    # coûte qu'une requête locale, et c'est ce qui fait aboutir la
+    # démonstration — autant que ce soit rapide.
+    rapprochement_intervalle_secondes: int = 600
+    double_intervalle_secondes: int = 20
 
     # La monnaie de la zone UEMOA n'a pas de sous-unité : 1 XOF = 1 unité mineure.
     currency: str = "XOF"
