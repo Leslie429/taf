@@ -31,13 +31,14 @@ les réveille et prend une trentaine de secondes.
 | Fiabilité des paiements | Clé d'idempotence en base, machine à états des transactions, rejeu inoffensif |
 | Intégration opérateur | API MTN MoMo (Collection et Disbursement) sur sandbox, avec double de test |
 | Sécurité | JWT accès/rafraîchissement, limitation de débit, révocation à la déconnexion, webhooks signés HMAC-SHA256 comparés en temps constant, callbacks non signés vérifiés auprès de l'opérateur |
-| Qualité | 105 tests Pytest (92 % de couverture) et 10 tests Vitest, lint Ruff, typage strict `mypy` et TypeScript, CI GitHub Actions |
-| Exploitation | Docker Compose, migrations Alembic versionnées, healthchecks |
+| Qualité | 140 tests Pytest (93 % de couverture) et 33 tests Vitest, lint Ruff, typage strict `mypy` et TypeScript, CI GitHub Actions |
+| Exploitation | Docker Compose, migrations Alembic versionnées, healthchecks, tâches de fond dans le conteneur |
+| Terrain | PWA installable, consultation hors connexion, file de cotisations rejouée au retour du réseau |
 
 ## Pile technique
 
-**Back-end** — Python 3.12, FastAPI, SQLAlchemy 2.0, Alembic, PostgreSQL 16, Redis
-**Front-end** — React 18, TypeScript, Vite, TanStack Query, React Router
+**Back-end** — Python 3.12, FastAPI, SQLAlchemy 2.0, Alembic, PostgreSQL 16
+**Front-end** — React 18, TypeScript, Vite, TanStack Query, React Router, PWA (service worker écrit à la main)
 **Outillage** — Docker Compose, Pytest, Vitest, Ruff, mypy, GitHub Actions
 
 ---
@@ -58,7 +59,8 @@ Les migrations sont appliquées automatiquement au démarrage de l'API.
 
 ### Sans Docker
 
-Il faut un PostgreSQL 16 et un Redis accessibles en local.
+Il faut un PostgreSQL 16 accessible en local. Rien d'autre : la limitation de
+débit et les compteurs vivent en base, pas dans un cache tiers.
 
 ```bash
 # Back-end
@@ -199,7 +201,9 @@ qui l'a motivée.
 
 `rate_limit_counters` gagne une ligne par seau et par fenêtre.
 [`scripts/purger_limites.py`](backend/scripts/purger_limites.py) efface les
-fenêtres périmées ; c'est la première tâche que prendra le battant Celery.
+fenêtres périmées, à la demande — une troisième boucle de
+[l'ordonnanceur](#ce-qui-tourne-tout-seul) l'accueillerait sans rien ajouter à
+la pile.
 
 ### Révocation des jetons
 
@@ -230,12 +234,15 @@ Les transitions autorisées sont déclarées dans `ALLOWED_TRANSITIONS` ; toute
 autre tentative lève `InvalidTransition`. Une transaction `failed` est
 terminale : on n'y revient pas, on en crée une nouvelle.
 
-## Le rapprochement quotidien
+## Le rapprochement
 
 Un callback se perd, un réseau coupe au mauvais moment, un opérateur change
 d'avis. Le grand livre finit par diverger du relevé de l'opérateur, et rien
 dans l'application ne le signalera de lui-même. C'est le rôle de
-[`scripts/rapprocher.py`](backend/scripts/rapprocher.py).
+[`app/services/rapprochement.py`](backend/app/services/rapprochement.py), qui
+tourne de lui-même dans le conteneur (voir
+[Ce qui tourne tout seul](#ce-qui-tourne-tout-seul)) et se lance aussi à la
+demande par [`scripts/rapprocher.py`](backend/scripts/rapprocher.py).
 
 Deux divergences, deux traitements — et l'écart de gravité entre elles est tout
 le sujet :
@@ -266,6 +273,68 @@ Trois garde-fous :
 `GET /api/v1/admin/reconciliation` expose le dernier rapprochement, réservé aux
 comptes portant `is_staff` — à ne pas confondre avec `Membership.is_admin`, qui
 n'administre qu'une tontine.
+
+## Ce qui tourne tout seul
+
+Deux tâches de fond vivent dans le conteneur de l'API
+([`app/services/ordonnanceur.py`](backend/app/services/ordonnanceur.py)), et
+tout l'enjeu est de ne pas les confondre.
+
+| Tâche | Période | Ce qu'elle fait |
+| --- | --- | --- |
+| `rapprochement` | 600 s | Confronte le grand livre au relevé des **opérateurs réels** |
+| `double` | 20 s | Rend le verdict que le **client simulé** n'émet jamais |
+
+**Pourquoi la première.** MTN ne rappelle pas — sur Render, jamais. Sans cette
+passe, un versement accepté par l'opérateur resterait « en cours » chez nous
+indéfiniment, et il fallait lancer un script depuis un poste pour le débloquer.
+
+**Pourquoi la seconde.** Le produit Collection du sandbox étant saturé,
+l'encaissement tourne sur le double. Celui-ci accepte les demandes mais n'émet
+aucun callback : une cotisation de démonstration tournait donc sur l'écran
+d'attente sans fin, à moins de lancer
+[`scripts/confirmer_paiements.py`](backend/scripts/confirmer_paiements.py)
+depuis un poste. **La démonstration se termine désormais seule.**
+
+### La frontière à ne pas franchir
+
+Ces deux tâches ne doivent jamais se rencontrer, et c'est le point qui mérite
+d'être lu deux fois.
+
+Le rapprochement **refuse d'examiner les transactions du double** : elles n'ont
+pas de relevé à leur opposer, et les confronter à un opérateur réel les ferait
+toutes passer pour des succès sans contrepartie. Symétriquement, la tâche du
+double **ne touche qu'aux transactions dont le fournisseur consigné est le
+double** — jamais une transaction partie chez MTN, dont lui seul peut dire si
+elle a abouti.
+
+Confondre les deux ferait passer pour encaissé de l'argent qui n'a jamais bougé
+— au grand livre, c'est-à-dire pour une fraude. Un test garde chaque côté de
+cette frontière, et ce sont les deux premiers à lire dans
+[`tests/test_ordonnanceur.py`](backend/tests/test_ordonnanceur.py).
+
+### Ce qui les tient
+
+- **Le même chemin que le webhook.** `tontine.appliquer_verdict` sert aux trois
+  porteurs — callback, rapprochement, double. Des chemins séparés finiraient
+  par diverger.
+- **Une passe en échec n'emporte pas la boucle.** Une base momentanément
+  injoignable arrêterait sinon les confirmations pour de bon.
+- **Le geste tourne dans un fil.** SQLAlchemy est synchrone ici : une passe un
+  peu longue gèlerait les requêtes en cours de traitement.
+- **Un intervalle nul désactive la tâche.** C'est le réglage des tests, posé
+  dans `conftest.py` — sans quoi l'ordonnanceur trancherait des transactions
+  sous le nez des tests qui les observent.
+
+Les périodes se règlent par `RAPPROCHEMENT_INTERVALLE_SECONDES` et
+`DOUBLE_INTERVALLE_SECONDES`. Une seule instance les exécute : l'offre gratuite
+de Render n'en lance qu'une, et uvicorn y tourne avec `--workers 1`.
+
+Enfin, `logging.basicConfig` est posé dans
+[`app/main.py`](backend/app/main.py) : uvicorn ne configure que ses propres
+journaux, et sans cela rien de ce que consigne l'application n'arriverait nulle
+part — à commencer par les échecs d'un ordonnanceur que personne ne regarde,
+sur un hébergeur dont le terminal distant est payant.
 
 ## Modèle de données
 
@@ -345,6 +414,67 @@ se collecte, et où se trouve son propre tour.
 
 Les maquettes sources vivent dans [`design/`](design/) et se republient en
 canvas à la demande.
+
+## Hors connexion
+
+Le réseau mobile de Cotonou tombe, et une cotisation ne devrait pas tomber avec
+lui. L'application est installable et reste utilisable sans connexion, par
+trois pièces distinctes — aucune dépendance ajoutée, ni Workbox ni greffon PWA.
+
+**La coque.** [`public/sw.js`](frontend/public/sw.js) sert l'application sans
+réseau : réseau d'abord pour la navigation, avec repli sur l'index en cache,
+et cache d'abord pour les fichiers versionnés par Vite, qui sont immuables.
+
+Ce service worker **ne met jamais en cache `/api`**. Ce sont des réponses
+authentifiées, et le Cache Storage n'est ni cloisonné par compte ni vidé à la
+déconnexion : elles y survivraient au départ de leur propriétaire.
+
+**Les données consultables.** Le cache de TanStack Query est recopié dans le
+stockage local à chaque changement et rendu au démarrage
+([`offline/persist.ts`](frontend/src/offline/persist.ts)) : l'application
+rouvre sur les données de la dernière visite au lieu d'un sablier qui
+n'aboutira pas. Ce cache est effacé à la déconnexion **et à la connexion** — un
+téléphone se prête, et ce qui restait du compte précédent ne doit pas se
+retrouver sous les yeux du suivant.
+
+**La file de cotisations.** Hors réseau, « Payer » ne renvoie plus une erreur
+que l'utilisateur ne peut pas corriger : la cotisation entre dans une file
+persistée ([`offline/queue.ts`](frontend/src/offline/queue.ts)) et part au
+retour de la connexion.
+
+### Pourquoi rejouer un paiement est sans danger
+
+C'est la question que pose toute file d'envois différés, et elle était déjà
+réglée avant d'être posée : **la clé d'idempotence est dérivée côté serveur de
+l'état de la cotisation**, pas fournie par le client.
+
+`next_attempt_key` compose `contribution:<id>:<rang>`, et ne passe au rang
+suivant que si le dernier essai a échoué. Une demande rejouée retombe donc sur
+la transaction déjà engagée au lieu d'en ouvrir une seconde — la file peut
+réessayer sans compter, et sans que le client ait à retenir quoi que ce soit.
+
+Deux règles complètent la file :
+
+- **Une seule entrée par cotisation.** Deux appuis sur « Payer » hors réseau,
+  c'est une dette, pas deux.
+- **Un refus du serveur est définitif ; une panne ne l'est pas.** Un 409 « déjà
+  réglée », un 403, un 404 sortent l'entrée de la file — la garder reviendrait
+  à la représenter indéfiniment. Un `fetch` qui échoue, un 502, un 401 dont le
+  rafraîchissement n'a rien donné ne disent rien de la cotisation : on
+  réessaiera. La passe s'arrête à la première panne, sans perdre les suivantes.
+
+L'API Background Sync n'est pas utilisée : absente de Safari, elle aurait
+laissé iOS sans file. Le déclenchement se fait sur l'événement `online` et au
+démarrage, ce que tous les navigateurs visés savent faire.
+
+Le service worker est exercé par ses propres tests
+([`offline/sw.test.ts`](frontend/src/offline/sw.test.ts)), dans un `self` et un
+Cache Storage gréés à la main : c'est la seule partie de l'application qu'on ne
+peut pas vérifier en l'ouvrant.
+
+Les icônes sont produites par
+[`scripts/build-icons.mjs`](frontend/scripts/build-icons.mjs), qui rastérise le
+glyphe de rotation sans dépendance — `npm run icons` les régénère.
 
 ## Mobile Money
 
@@ -469,6 +599,33 @@ gratuite ne lance qu'une instance. Le dépôt garde
 `release_command` — là, deux machines tournent, et la lancer au démarrage ferait
 courir deux migrations en concurrence sur la même table de version.
 
+### Faire tourner le mot de passe de la base
+
+Une chaîne de connexion Neon circule vite — un terminal, un presse-papier, une
+capture d'écran. Elle se remplace en deux gestes, entre lesquels s'ouvre une
+brève fenêtre de panne — l'ancienne chaîne est refusée dès la réinitialisation,
+la nouvelle n'est posée qu'ensuite. Autant la traverser vite :
+
+```bash
+# 1. Neon → Branch → Roles → « Reset password » sur le rôle applicatif.
+#    L'ancienne chaîne cesse d'être acceptée immédiatement : à partir d'ici,
+#    l'API tourne sur ses connexions déjà ouvertes et rien de plus.
+
+# 2. Render → tontine-api → Environment → DATABASE_URL → la nouvelle chaîne,
+#    toujours la DIRECTE, sans « -pooler ». Enregistrer redéploie le service.
+```
+
+Le redémarrage est lui-même la vérification : les migrations passent au
+démarrage du conteneur, et `alembic upgrade head` ne franchit pas une chaîne
+erronée — le déploiement échoue au lieu de servir une application sans base.
+
+`/health` ne le dirait pas : il rend compte de la configuration et des
+opérateurs retenus, sans toucher à la base. Pour voir la base répondre, il faut
+un appel qui la lise — une connexion au compte de démonstration suffit.
+
+Un `.env` local qui porterait l'ancienne chaîne est à reprendre au passage : les
+scripts d'exploitation s'en servent.
+
 ### Ce qu'il faut vérifier après un déploiement
 
 1. `GET /health` répond `ok` **et nomme l'opérateur retenu pour chaque
@@ -497,7 +654,7 @@ export DATABASE_URL='<chaîne Neon directe>'
 
 python scripts/semer_demo.py                       # peupler la démonstration
 python scripts/promouvoir_equipe.py +22901691004   # ouvrir l'écran de rapprochement
-python scripts/rapprocher.py                       # rapprochement quotidien
+python scripts/rapprocher.py                       # rapprochement à la demande
 python scripts/purger_limites.py                   # ménage des compteurs
 ```
 
@@ -505,12 +662,16 @@ Il n'existe volontairement aucune route pour `promouvoir_equipe` : une
 élévation de privilège qui s'obtient par un appel HTTP est une élévation de
 privilège de trop.
 
-`MOMO_CALLBACK_SECRET` se choisit, il ne s'engendre pas. Tant que Collection
-tourne sur le double, c'est
-[`scripts/confirmer_paiements.py`](backend/scripts/confirmer_paiements.py) qui
-joue l'opérateur et signe les callbacks — depuis un poste. Un secret engendré
-par l'hébergeur, que personne ne connaît, rendrait ce script inutilisable et
-aucune cotisation ne pourrait plus être confirmée.
+`MOMO_CALLBACK_SECRET` se choisit, il ne s'engendre pas.
+[`scripts/confirmer_paiements.py`](backend/scripts/confirmer_paiements.py)
+signe les callbacks qu'il envoie, et un secret engendré par l'hébergeur, que
+personne ne connaît, le rendrait inutilisable.
+
+Ce script n'est plus indispensable à la démonstration — la tâche de fond
+`double` tranche désormais toute seule (voir
+[Ce qui tourne tout seul](#ce-qui-tourne-tout-seul)). Il reste utile pour ce
+qu'elle ne fait pas : simuler un **refus** avec `--echec`, et exercer le chemin
+du webhook signé de bout en bout.
 
 Le script passe par les services métier, jamais par des insertions directes :
 les écritures du grand livre sont celles qu'aurait produites une vraie
@@ -519,17 +680,20 @@ utilisation, et les soldes affichés se recalculent à partir d'elles.
 ### Mobile Money en production
 
 Sans `MOMO_SUBSCRIPTION_KEY`, l'API bascule sur le client simulé : un paiement
-part mais rien ne le confirme. Pour une démonstration en ligne, deux options —
-brancher le sandbox MTN et déclarer l'URL de callback
-`https://tontine-api-jhph.onrender.com/api/v1/webhooks/momo`, ou laisser le client simulé et confirmer
-les paiements avec
-[`scripts/confirmer_paiements.py`](backend/scripts/confirmer_paiements.py).
+part, mais aucun callback ne vient le confirmer. La tâche de fond `double` rend
+alors le verdict à la place de l'opérateur, ce qui suffit à faire aboutir la
+démonstration sans intervention.
+
+Pour la brancher sur le vrai sandbox MTN, il faut la clé du produit et l'URL de
+callback complète :
+`https://tontine-api-jhph.onrender.com/api/v1/webhooks/momo`. Les transactions
+partent alors chez MTN, et c'est le rapprochement — jamais la tâche `double` —
+qui rattrape les verdicts non reçus.
 
 ## Reste à faire
 
 - [ ] Journal d'audit horodaté des actions d'administration
-- [ ] Relances automatiques des cotisations en retard (Celery battant)
-- [ ] PWA hors connexion : consultation et file de cotisations en attente
+- [ ] Relances automatiques des cotisations en retard (une boucle de plus dans l'ordonnanceur)
 - [ ] Notifications SMS
 
 ## Licence
