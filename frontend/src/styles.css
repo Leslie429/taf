@@ -882,3 +882,47 @@ input::placeholder {
   color: inherit;
   opacity: 0.6;
 }
+
+/* ------------------------------------------------------------------ *
+ * Bandeau hors connexion
+ * ------------------------------------------------------------------ */
+
+/* Il coiffe l'application, au-dessus du bandeau haut : ce qu'il annonce vaut
+ * pour tout l'écran, et il disparaît dès que la situation redevient normale. */
+.offline {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-sm);
+  background: var(--urgent);
+  color: var(--on-urgent);
+  padding: calc(8px + env(safe-area-inset-top)) var(--page-x) 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+/* Le réseau est revenu mais la file n'est pas encore vide : c'est une attente,
+ * plus une panne. */
+.offline--pending {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.offline__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-pill);
+  background: currentColor;
+  flex-shrink: 0;
+  animation: offline-pulse 1.8s ease-in-out infinite;
+}
+
+.offline__text {
+  min-width: 0;
+}
+
+@keyframes offline-pulse {
+  50% {
+    opacity: 0.25;
+  }
+}

@@ -3,6 +3,8 @@ import type { ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api, tokenStore } from '@/api/client'
+import { clearPersistedCache } from '@/offline/persist'
+import { clearQueue } from '@/offline/queue'
 import type { TokenPair, User } from '@/api/types'
 
 interface AuthValue {
@@ -29,6 +31,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const authenticate = useCallback(
     async (path: string, body: unknown) => {
       const pair = await api.post<TokenPair>(path, body, { auth: false })
+      // Le téléphone se prête. Ce qui restait du compte précédent — cache
+      // consultable hors connexion, cotisations en file — ne doit pas se
+      // retrouver sous les yeux du suivant, ni partir en son nom.
+      queryClient.clear()
+      clearPersistedCache()
+      clearQueue()
       tokenStore.save(pair)
       setHasToken(true)
       await queryClient.invalidateQueries({ queryKey: ['me'] })
@@ -47,6 +55,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         tokenStore.clear()
         setHasToken(false)
         queryClient.clear()
+        clearPersistedCache()
+        clearQueue()
       },
     }),
     [user, hasToken, isLoading, authenticate, queryClient],

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { api } from '@/api/client'
+import { ApiError, api } from '@/api/client'
+import { enqueue } from '@/offline/queue'
 import type {
   Balance,
   Contribution,
@@ -80,13 +81,37 @@ export function useActivateGroup(groupId: string) {
   })
 }
 
+/** Soit l'opérateur a été sollicité, soit la cotisation attend le réseau. */
+export type PayOutcome = { queued: true } | { queued: false; transaction: Transaction }
+
 export function usePayContribution(groupId: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (contributionId: string) =>
-      api.post<Transaction>(`/contributions/${contributionId}/pay`),
+    mutationFn: async (contributionId: string): Promise<PayOutcome> => {
+      // Le réseau manque : inutile de tenter l'envoi pour afficher une erreur
+      // que l'utilisateur ne peut pas corriger. La cotisation entre en file.
+      if (!navigator.onLine) {
+        enqueue({ contributionId, groupId })
+        return { queued: true }
+      }
+      try {
+        const transaction = await api.post<Transaction>(
+          `/contributions/${contributionId}/pay`,
+        )
+        return { queued: false, transaction }
+      } catch (erreur) {
+        // Une réponse de l'API, même un refus, est un verdict : elle remonte.
+        // Un `fetch` qui échoue n'en est pas un — le réseau a lâché entre le
+        // téléphone et nous, et rien ne dit que la demande soit partie. Elle
+        // sera rejouée, ce que la clé d'idempotence rend sans conséquence.
+        if (erreur instanceof ApiError) throw erreur
+        enqueue({ contributionId, groupId })
+        return { queued: true }
+      }
+    },
     // L'opérateur répond par callback : on rafraîchit cycles et solde ensemble.
-    onSuccess: () => {
+    onSuccess: (outcome) => {
+      if (outcome.queued) return
       void queryClient.invalidateQueries({ queryKey: ['groups', groupId, 'cycles'] })
       void queryClient.invalidateQueries({ queryKey: ['groups', groupId, 'balance'] })
     },

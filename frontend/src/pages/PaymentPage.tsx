@@ -5,6 +5,8 @@ import { IconCheck, IconInfo, IconPhone } from '@/components/Icon'
 import { useAuth } from '@/hooks/useAuth'
 import { useContribution, useGroup, useMembers, usePayContribution } from '@/hooks/useGroups'
 import { formatDate, formatXof } from '@/lib'
+import { dequeue } from '@/offline/queue'
+import { useOnline, useQueue } from '@/offline/useOffline'
 import { WaitingScreen } from '@/pages/WaitingScreen'
 
 const OPERATEURS = [
@@ -21,12 +23,41 @@ export function PaymentPage() {
   const members = useMembers(groupId)
   const { contribution, cycle, isLoading } = useContribution(groupId, contributionId)
   const pay = usePayContribution(groupId)
+  const online = useOnline()
+  const enFile = useQueue().some((item) => item.contributionId === contributionId)
 
   const [operateur, setOperateur] = useState<string>('mtn')
 
   if (isLoading || group.isLoading) return <p className="muted app__main">Chargement…</p>
   if (!contribution || !cycle || !group.data) {
     return <p className="alert app__main">Cotisation introuvable.</p>
+  }
+
+  // Rien n'est parti tant que le réseau manque : l'écran d'attente de
+  // l'opérateur n'aurait personne à attendre.
+  if (enFile && contribution.status !== 'paid') {
+    return (
+      <main className="app__main">
+        <div className="card rise">
+          <IconInfo size={24} />
+          <h2>En attente du réseau</h2>
+          <p className="muted">
+            Votre cotisation de {formatXof(contribution.amount_minor)} part dès que la
+            connexion revient. Vous pouvez fermer l'application — elle reste en file.
+          </p>
+          <button type="button" className="btn" onClick={() => navigate(`/groupes/${groupId}`)}>
+            Revenir à la tontine
+          </button>
+          <button
+            type="button"
+            className="btn btn--ghost"
+            onClick={() => dequeue(contributionId)}
+          >
+            Retirer de la file
+          </button>
+        </div>
+      </main>
+    )
   }
 
   // Une cotisation déjà engagée reprend directement à l'écran d'attente, même
@@ -145,8 +176,17 @@ export function PaymentPage() {
         <div className="notice rise" style={{ animationDelay: '.18s' }}>
           <IconInfo size={17} />
           <span>
-            Une invite arrivera sur votre téléphone. Composez votre code secret Mobile Money
-            pour valider — nous ne le voyons jamais.
+            {online ? (
+              <>
+                Une invite arrivera sur votre téléphone. Composez votre code secret Mobile
+                Money pour valider — nous ne le voyons jamais.
+              </>
+            ) : (
+              <>
+                Vous êtes hors connexion. La cotisation sera mise en file et partira dès le
+                retour du réseau ; l'invite arrivera à ce moment-là.
+              </>
+            )}
           </span>
         </div>
 
@@ -161,7 +201,11 @@ export function PaymentPage() {
           onClick={() => pay.mutate(contribution.id)}
         >
           <IconPhone size={20} />
-          {pay.isPending ? 'Envoi…' : `Confirmer · ${formatXof(contribution.amount_minor)}`}
+          {pay.isPending
+            ? 'Envoi…'
+            : online
+              ? `Confirmer · ${formatXof(contribution.amount_minor)}`
+              : `Mettre en file · ${formatXof(contribution.amount_minor)}`}
         </button>
       </div>
     </>
