@@ -608,7 +608,10 @@ brève fenêtre de panne — l'ancienne chaîne est refusée dès la réinitiali
 la nouvelle n'est posée qu'ensuite. Autant la traverser vite :
 
 ```bash
-# 1. Neon → Branch → Roles → « Reset password » sur le rôle applicatif.
+# 1. Neon → la branche → réinitialiser le mot de passe du rôle applicatif,
+#    « neondb_owner ». Le bouton « Connect » y mène, et donne au passage la
+#    chaîne complète. Ne pas chercher du côté de « Credentials » : ce sont des
+#    clés S3 et des jetons d'API Gateway, sans rapport avec les rôles Postgres.
 #    L'ancienne chaîne cesse d'être acceptée immédiatement : à partir d'ici,
 #    l'API tourne sur ses connexions déjà ouvertes et rien de plus.
 
@@ -624,8 +627,18 @@ erronée — le déploiement échoue au lieu de servir une application sans base
 opérateurs retenus, sans toucher à la base. Pour voir la base répondre, il faut
 un appel qui la lise — une connexion au compte de démonstration suffit.
 
-Un `.env` local qui porterait l'ancienne chaîne est à reprendre au passage : les
-scripts d'exploitation s'en servent.
+Reste à effacer les traces de l'ancienne. Le `.env` du dépôt pointe sur le
+Docker local et ne la porte pas, mais l'historique du terminal, lui, la garde
+en clair — les scripts d'exploitation se lancent avec `DATABASE_URL` en
+préfixe de commande :
+
+```bash
+sed -i "/neon\.tech/d" ~/.bash_history
+history -c && history -r   # sinon le shell ouvert réécrit l'ancienne ligne
+```
+
+Ne pas sauvegarder le fichier avant de le nettoyer : la copie porterait le
+secret qu'on cherche à faire disparaître.
 
 ### Ce qu'il faut vérifier après un déploiement
 
