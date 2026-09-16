@@ -13,6 +13,8 @@ os.environ.setdefault("JWT_SECRET", "secret-de-test")
 # transactions sous le nez des tests qui les observent.
 os.environ.setdefault("RAPPROCHEMENT_INTERVALLE_SECONDES", "0")
 os.environ.setdefault("DOUBLE_INTERVALLE_SECONDES", "0")
+os.environ.setdefault("RELANCES_INTERVALLE_SECONDES", "0")
+os.environ.setdefault("PURGE_INTERVALLE_SECONDES", "0")
 
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import create_engine  # noqa: E402

@@ -57,6 +57,12 @@ class Settings(BaseSettings):
     operator_prefixes: str = ""
     operator_default: str = "mtn_momo"
 
+    # SMS. Sans les trois, les notifications partent chez le double : rien ne
+    # quitte la machine, et la notification consigne « fake ».
+    twilio_account_sid: str = ""
+    twilio_auth_token: str = ""
+    twilio_from: str = ""
+
     # Ce que l'application entreprend d'elle-même, en secondes. Zéro désactive.
     #
     # Le rapprochement interroge les opérateurs : il se paie en appels sortants
@@ -65,6 +71,11 @@ class Settings(BaseSettings):
     # démonstration — autant que ce soit rapide.
     rapprochement_intervalle_secondes: int = 600
     double_intervalle_secondes: int = 20
+    # Les relances se calculent sur des dates : une passe par heure suffit
+    # largement, et la clé de dédoublonnement interdit le doublon quoi qu'il
+    # arrive. La purge des compteurs de limitation, une fois par jour.
+    relances_intervalle_secondes: int = 3600
+    purge_intervalle_secondes: int = 86400
 
     # La monnaie de la zone UEMOA n'a pas de sous-unité : 1 XOF = 1 unité mineure.
     currency: str = "XOF"

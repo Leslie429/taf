@@ -15,7 +15,10 @@ sans fin. Ce que [`scripts/confirmer_paiements.py`](../../scripts/confirmer_paie
 fait depuis un poste, cette tâche le fait depuis le conteneur — pour que la
 démonstration se termine sans que personne ait à lancer quoi que ce soit.
 
-**La frontière entre les deux est la règle à ne pas franchir.** Le
+Deux autres passes s'y sont ajoutées, sans enjeu comparable : les **relances**
+des cotisations en retard, et la **purge** des compteurs de limitation périmés.
+
+**La frontière entre les deux premières est la règle à ne pas franchir.** Le
 rapprochement n'invente jamais un verdict : il applique celui de l'opérateur,
 et refuse d'examiner les transactions du double, faute de relevé à leur
 opposer. Le verdict du double, symétriquement, ne touche jamais une transaction
@@ -32,6 +35,7 @@ import asyncio
 import logging
 from collections.abc import Callable
 from contextlib import suppress
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -39,9 +43,10 @@ from sqlalchemy.orm import Session
 from app.db.session import SessionLocal
 from app.models.enums import TransactionStatus
 from app.models.ledger import Transaction
+from app.services import limitation, rapprochement, relances, tontine
 from app.services import momo as momo_service
-from app.services import rapprochement, tontine
 from app.services.operateurs import Operateurs
+from app.services.sms import client_sms
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +94,38 @@ def passe_de_rapprochement(reseau: Operateurs) -> None:
             run.examined,
             ecarts,
         )
+
+
+def passe_de_relances() -> None:
+    """Repère les retards, puis remet au canal ce qui attend.
+
+    Les deux gestes à la suite dans la même passe : séparer leur *logique* a du
+    sens — l'un décide quoi dire, l'autre quand partir — mais rien n'exige de
+    séparer leur *cadence*.
+    """
+    with SessionLocal() as db:
+        inscrites = relances.reperer(db)
+        parties, echouees = relances.acheminer(db, client_sms())
+    if inscrites or parties or echouees:
+        logger.info(
+            "Relances : %d inscrite(s), %d partie(s), %d en échec.",
+            inscrites,
+            parties,
+            echouees,
+        )
+
+
+def passe_de_purge() -> None:
+    """Efface les fenêtres de limitation périmées.
+
+    La table gagne une ligne par seau et par fenêtre ; sous une attaque par
+    force brute, elle grossit vite et pour rien.
+    """
+    seuil = datetime.now(UTC) - timedelta(days=1)
+    with SessionLocal() as db:
+        efface = limitation.purger(db, avant=seuil)
+    if efface:
+        logger.info("Purge : %d fenêtre(s) de limitation effacée(s).", efface)
 
 
 async def _boucler(nom: str, intervalle: float, geste: Callable[[], None]) -> None:

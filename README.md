@@ -33,7 +33,7 @@ les réveille et prend une trentaine de secondes.
 | Fiabilité des paiements | Clé d'idempotence en base, machine à états des transactions, rejeu inoffensif |
 | Intégration opérateur | API MTN MoMo (Collection et Disbursement) sur sandbox, avec double de test |
 | Sécurité | JWT accès/rafraîchissement, limitation de débit, révocation à la déconnexion, webhooks signés HMAC-SHA256 comparés en temps constant, callbacks non signés vérifiés auprès de l'opérateur |
-| Qualité | 153 tests Pytest (93 % de couverture) et 33 tests Vitest, lint Ruff, typage strict `mypy` et TypeScript, CI GitHub Actions |
+| Qualité | 175 tests Pytest (93 % de couverture) et 33 tests Vitest, lint Ruff, typage strict `mypy` et TypeScript, CI GitHub Actions |
 | Exploitation | Docker Compose, migrations Alembic versionnées, healthchecks, tâches de fond dans le conteneur |
 | Terrain | PWA installable, consultation hors connexion, file de cotisations rejouée au retour du réseau |
 
@@ -278,14 +278,16 @@ n'administre qu'une tontine.
 
 ## Ce qui tourne tout seul
 
-Deux tâches de fond vivent dans le conteneur de l'API
-([`app/services/ordonnanceur.py`](backend/app/services/ordonnanceur.py)), et
-tout l'enjeu est de ne pas les confondre.
+Quatre tâches de fond vivent dans le conteneur de l'API
+([`app/services/ordonnanceur.py`](backend/app/services/ordonnanceur.py)). Les
+deux premières portent tout l'enjeu : il ne faut pas les confondre.
 
 | Tâche | Période | Ce qu'elle fait |
 | --- | --- | --- |
 | `rapprochement` | 600 s | Confronte le grand livre au relevé des **opérateurs réels** |
 | `double` | 20 s | Rend le verdict que le **client simulé** n'émet jamais |
+| `relances` | 1 h | Repère les cotisations en retard et achemine les rappels |
+| `purge` | 24 h | Efface les fenêtres de limitation périmées |
 
 **Pourquoi la première.** MTN ne rappelle pas — sur Render, jamais. Sans cette
 passe, un versement accepté par l'opérateur resterait « en cours » chez nous
@@ -394,6 +396,62 @@ relisant depuis une autre connexion.
 Le journal se lit du plus récent au plus ancien, filtrable par action, par
 issue et par acteur. Réservé à `is_staff` — à ne pas confondre avec
 `Membership.is_admin`, qui n'administre qu'une tontine.
+
+## Les relances
+
+Une tontine ne tient que si chacun paie à l'échéance, et personne n'est là pour
+surveiller les retards. Un membre qui oublie bloque le tour de quelqu'un
+d'autre — c'est cette personne-là, au bout de la chaîne, que la relance sert.
+
+**Deux gestes, séparés à dessein**
+([`app/services/relances.py`](backend/app/services/relances.py)) :
+
+| | Décide | Ne fait pas |
+| --- | --- | --- |
+| `reperer` | **quoi** dire : lit les retards, inscrit une notification en attente | ne parle à personne |
+| `acheminer` | **quand** partir : remet au canal ce qui attend | ne recalcule aucun retard |
+
+Les séparer permet à un envoi qui échoue d'être retenté sans refaire le calcul,
+et au calcul de tourner sans dépendre d'un opérateur joignable.
+
+### Ce qui empêche le harcèlement
+
+Pas la prudence du code : **une contrainte d'unicité**. La clé porte la
+cotisation et la journée — `relance:contribution:<uuid>:2026-09-16` — si bien
+qu'une deuxième passe le même jour se heurte à la base plutôt qu'à une
+condition qu'on aurait pu oublier d'écrire. L'ordonnanceur repasse toutes les
+heures ; sans ce garde-fou, un membre recevrait vingt-quatre SMS par jour.
+
+L'insertion se fait dans un point de sauvegarde, et c'est délibéré : une
+insertion refusée hors savepoint mettrait toute la session en échec et
+emporterait les relances déjà inscrites du même passage.
+
+**Les relances s'arrêtent après cinq passages.** Passé cinq jours, le retard
+est installé et un SMS de plus n'apprend rien à personne : c'est une
+conversation qu'il faut.
+
+Le message dit le montant, la tontine et l'échéance — de quoi agir — et rien
+d'autre. Un SMS ne se relit pas, et il peut être lu par-dessus l'épaule.
+
+### Le canal
+
+Même dispositif que Mobile Money : un protocole, un client réel, un double qui
+accepte tout ([`app/services/sms.py`](backend/app/services/sms.py)). Sans les
+trois réglages `TWILIO_*`, c'est le double qui tourne — le développement local
+et la démonstration n'exigent pas de compte chez un opérateur, et rien ne quitte
+la machine.
+
+> **Le client Twilio n'a jamais été exercé contre le vrai service** : je n'ai
+> pas de compte. L'API est publique et stable, la requête est conforme à ce
+> qu'elle décrit, et le client est testé contre un transport simulé — mais tant
+> qu'un envoi réel n'a pas abouti, c'est du code vraisemblable, pas du code
+> éprouvé. Un autre fournisseur s'enregistre en implémentant `SmsClient`, et
+> rien d'autre ne bouge.
+
+Comme la relance est aussi une trace en base, elle reste lisible même quand le
+SMS n'est pas parti : `GET /api/v1/me/notifications`, et l'encart « À régler »
+en tête de l'accueil. Sur la démonstration, c'est le seul endroit où elle se
+lit.
 
 ## Modèle de données
 
@@ -703,7 +761,7 @@ secret qu'on cherche à faire disparaître.
 1. `GET /health` répond `ok` **et nomme l'opérateur retenu pour chaque
    produit** — `fake` y signale une clé oubliée, avant qu'un paiement ne parte
    chez le double
-2. `/docs` s'ouvre et liste les 21 opérations
+2. `/docs` s'ouvre et liste les 22 opérations
 3. Une inscription depuis le front aboutit — sinon, `CORS_ORIGINS` ne
    correspond pas exactement à l'origine du navigateur (schéma compris, sans
    barre finale)
@@ -764,8 +822,13 @@ qui rattrape les verdicts non reçus.
 
 ## Reste à faire
 
-- [ ] Relances automatiques des cotisations en retard (une boucle de plus dans l'ordonnanceur)
-- [ ] Notifications SMS
+Rien de déclaré. Les pistes ouvertes, par ordre de ce qu'elles apprendraient :
+
+- [ ] Brancher un vrai fournisseur SMS et exercer l'envoi pour de bon
+- [ ] Débloquer le produit Collection du sandbox MTN, pour que l'encaissement
+      quitte le double
+- [ ] Relances par palier plutôt que quotidiennes (J+1, J+3, J+7)
+
 
 ## Licence
 

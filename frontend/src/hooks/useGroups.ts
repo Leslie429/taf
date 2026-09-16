@@ -9,6 +9,7 @@ import type {
   Group,
   HistoryItem,
   Member,
+  Notification,
   Transaction,
 } from '@/api/types'
 
@@ -115,6 +116,18 @@ export function usePayContribution(groupId: string) {
       void queryClient.invalidateQueries({ queryKey: ['groups', groupId, 'cycles'] })
       void queryClient.invalidateQueries({ queryKey: ['groups', groupId, 'balance'] })
     },
+  })
+}
+
+/** Les relances adressées au membre.
+ *
+ *  Elles sont rendues même quand le SMS n'est pas parti : sans opérateur
+ *  configuré, c'est le double qui tourne et cet écran est le seul endroit où
+ *  la relance se lit. */
+export function useNotifications() {
+  return useQuery({
+    queryKey: ['notifications'],
+    queryFn: () => api.get<Notification[]>('/me/notifications'),
   })
 }
 

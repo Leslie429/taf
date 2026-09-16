@@ -1,5 +1,6 @@
 from app.models.audit import AuditEvent
 from app.models.ledger import Account, LedgerEntry, Transaction, WebhookEvent
+from app.models.notification import Notification
 from app.models.rate_limit import RateLimitCounter
 from app.models.reconciliation import Divergence, ReconciliationRun
 from app.models.tontine import Contribution, Cycle, Membership, TontineGroup
@@ -13,6 +14,7 @@ __all__ = [
     "Divergence",
     "LedgerEntry",
     "Membership",
+    "Notification",
     "RateLimitCounter",
     "ReconciliationRun",
     "TontineGroup",

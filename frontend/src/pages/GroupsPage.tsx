@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 
 import { Badge } from '@/components/Badge'
 import { IconPhone } from '@/components/Icon'
+import { Relances } from '@/components/Relances'
 import type { Group } from '@/api/types'
 import { useAuth } from '@/hooks/useAuth'
 import { useCreateGroup, useGroups } from '@/hooks/useGroups'
@@ -50,6 +51,8 @@ export function GroupsPage() {
       </header>
 
       <main className="app__main">
+        <Relances />
+
         {open && (
           <form
             className="card form rise"

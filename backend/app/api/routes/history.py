@@ -5,8 +5,10 @@ from sqlalchemy import or_, select
 
 from app.api.deps import CurrentUser, DbSession
 from app.models.ledger import Transaction
+from app.models.notification import Notification
 from app.models.tontine import Contribution, Cycle, Membership, TontineGroup
 from app.schemas.history import HistoryItem
+from app.schemas.notification import NotificationOut
 
 router = APIRouter(prefix="/me", tags=["historique"])
 
@@ -93,3 +95,26 @@ def my_transactions(
     # faudra une UNION paginée en base.
     tout = sorted(sorties + entrees, key=attrgetter("created_at"), reverse=True)
     return tout[offset : offset + limit]
+
+
+@router.get("/notifications", response_model=list[NotificationOut])
+def my_notifications(
+    db: DbSession,
+    user: CurrentUser,
+    limit: int = Query(default=30, le=100),
+    offset: int = Query(default=0, ge=0),
+) -> list[Notification]:
+    """Les relances adressées à l'utilisateur, de la plus récente à la plus ancienne.
+
+    Elles sont rendues même quand le SMS n'est pas parti : sans opérateur
+    configuré, c'est le double qui tourne et rien ne quitte la machine — cet
+    écran reste alors le seul endroit où la relance se lit.
+    """
+    stmt = (
+        select(Notification)
+        .where(Notification.user_id == user.id)
+        .order_by(Notification.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    return list(db.execute(stmt).scalars().all())

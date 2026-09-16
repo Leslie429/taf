@@ -89,3 +89,17 @@ export interface HistoryItem {
   group_name: string
   cycle_index: number
 }
+
+export type NotificationKind = 'contribution.late'
+export type NotificationStatus = 'pending' | 'sent' | 'failed'
+
+export interface Notification {
+  id: string
+  kind: NotificationKind
+  /** L'acheminement du SMS, pas l'état de la cotisation. */
+  status: NotificationStatus
+  body: string
+  contribution_id: string | null
+  created_at: string
+  sent_at: string | null
+}

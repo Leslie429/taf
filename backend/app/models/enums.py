@@ -99,3 +99,23 @@ class AuditOutcome(StrEnum):
 
     ALLOWED = "allowed"
     DENIED = "denied"
+
+
+class NotificationKind(StrEnum):
+    """Ce qui vaut d'être signalé à un membre."""
+
+    # La cotisation du tour en cours est en retard.
+    CONTRIBUTION_LATE = "contribution.late"
+
+
+class NotificationStatus(StrEnum):
+    """Où en est l'acheminement d'une notification.
+
+    `pending` est l'état d'une notification créée mais pas encore partie : la
+    relance décide *quoi* envoyer, l'acheminement décide *quand*. Les séparer
+    permet à un envoi qui échoue d'être retenté sans recalculer le retard.
+    """
+
+    PENDING = "pending"
+    SENT = "sent"
+    FAILED = "failed"

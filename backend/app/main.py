@@ -41,6 +41,16 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
             settings.rapprochement_intervalle_secondes,
             lambda: ordonnanceur.passe_de_rapprochement(get_operateurs()),
         ),
+        ordonnanceur.demarrer(
+            "relances",
+            settings.relances_intervalle_secondes,
+            ordonnanceur.passe_de_relances,
+        ),
+        ordonnanceur.demarrer(
+            "purge",
+            settings.purge_intervalle_secondes,
+            ordonnanceur.passe_de_purge,
+        ),
     ]
     try:
         yield
