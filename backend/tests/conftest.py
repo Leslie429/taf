@@ -18,7 +18,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import create_engine  # noqa: E402
 from sqlalchemy.orm import Session, sessionmaker  # noqa: E402
 
-from app.api.deps import get_current_user, get_operateurs  # noqa: E402
+from app.api.deps import get_audit_session, get_current_user, get_operateurs  # noqa: E402
 from app.core.config import settings  # noqa: E402
 from app.db.base import Base  # noqa: E402
 from app.db.session import get_db  # noqa: E402
@@ -81,6 +81,12 @@ def client(
 ) -> Generator[TestClient, None, None]:
     app.dependency_overrides[get_db] = lambda: db
     app.dependency_overrides[get_operateurs] = lambda: reseau
+    # En production, le journal d'audit écrit dans une session à lui, pour
+    # qu'un refus survive au rollback de la requête. Ici les deux partagent la
+    # session du test : son `commit` ne fait que relâcher un point de
+    # sauvegarde, et le rollback final nettoie tout. L'isolation réelle est
+    # vérifiée à part, dans test_audit.py.
+    app.dependency_overrides[get_audit_session] = lambda: db
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()

@@ -1,11 +1,11 @@
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from sqlalchemy import select
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import Session, selectinload
 
-from app.api.deps import CurrentUser, DbSession
-from app.models.enums import AccountKind, GroupStatus, MembershipStatus
+from app.api.deps import AuditSession, CurrentUser, DbSession
+from app.models.enums import AccountKind, AuditAction, GroupStatus, MembershipStatus
 from app.models.tontine import Cycle, Membership, TontineGroup
 from app.models.user import User
 from app.schemas.tontine import (
@@ -16,7 +16,7 @@ from app.schemas.tontine import (
     MemberAdd,
     MemberOut,
 )
-from app.services import ledger, tontine
+from app.services import audit, ledger, tontine
 
 router = APIRouter(prefix="/groups", tags=["groupes"])
 
@@ -34,21 +34,56 @@ def _membership_or_403(db: DbSession, group_id: UUID, user: User) -> Membership:
     return membership
 
 
-def _admin_or_403(db: DbSession, group_id: UUID, user: User) -> Membership:
+def _admin_or_403(
+    db: DbSession,
+    group_id: UUID,
+    user: User,
+    *,
+    journal: Session | None = None,
+    action: AuditAction | None = None,
+    requete: Request | None = None,
+) -> Membership:
+    """Exige la qualité d'administrateur de la tontine.
+
+    Le refus se consigne ici plutôt que chez l'appelant : une garde qui
+    journalise elle-même ne peut pas être contournée en oubliant un appel.
+    """
     membership = _membership_or_403(db, group_id, user)
     if not membership.is_admin:
+        if journal is not None and action is not None:
+            audit.consigner_refus(
+                journal,
+                acteur=user,
+                action=action,
+                motif="Action réservée à l'administrateur.",
+                cible_type="group",
+                cible_id=group_id,
+                requete=requete,
+            )
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Action réservée à l'administrateur.")
     return membership
 
 
 @router.post("", response_model=GroupOut, status_code=status.HTTP_201_CREATED)
-def create_group(payload: GroupCreate, db: DbSession, user: CurrentUser) -> TontineGroup:
+def create_group(
+    payload: GroupCreate, db: DbSession, user: CurrentUser, request: Request
+) -> TontineGroup:
     group = TontineGroup(**payload.model_dump(), created_by_id=user.id)
     db.add(group)
     db.flush()
 
     # Le créateur devient membre et administrateur, en première position.
     db.add(Membership(group_id=group.id, user_id=user.id, payout_position=1, is_admin=True))
+    audit.consigner(
+        db,
+        acteur=user,
+        action=AuditAction.GROUP_CREATED,
+        cible_type="group",
+        cible_id=group.id,
+        requete=request,
+        name=group.name,
+        contribution_minor=group.contribution_minor,
+    )
     db.commit()
     db.refresh(group)
     return group
@@ -83,9 +118,16 @@ def get_group(group_id: UUID, db: DbSession, user: CurrentUser) -> TontineGroup:
 
 @router.post("/{group_id}/members", response_model=MemberOut, status_code=status.HTTP_201_CREATED)
 def add_member(
-    group_id: UUID, payload: MemberAdd, db: DbSession, user: CurrentUser
+    group_id: UUID,
+    payload: MemberAdd,
+    db: DbSession,
+    user: CurrentUser,
+    request: Request,
+    journal: AuditSession,
 ) -> Membership:
-    _admin_or_403(db, group_id, user)
+    _admin_or_403(
+        db, group_id, user, journal=journal, action=AuditAction.MEMBER_ADDED, requete=request
+    )
     group = db.get(TontineGroup, group_id)
     if group is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Groupe introuvable.")
@@ -101,6 +143,16 @@ def add_member(
     position = payload.payout_position or tontine.next_payout_position(db, group_id)
     membership = Membership(group_id=group_id, user_id=invitee.id, payout_position=position)
     db.add(membership)
+    audit.consigner(
+        db,
+        acteur=user,
+        action=AuditAction.MEMBER_ADDED,
+        cible_type="group",
+        cible_id=group_id,
+        requete=request,
+        member_user_id=str(invitee.id),
+        payout_position=position,
+    )
     db.commit()
     db.refresh(membership)
     return membership
@@ -118,8 +170,16 @@ def list_members(group_id: UUID, db: DbSession, user: CurrentUser) -> list[Membe
 
 
 @router.post("/{group_id}/activate", response_model=list[CycleOut])
-def activate(group_id: UUID, db: DbSession, user: CurrentUser) -> list[Cycle]:
-    _admin_or_403(db, group_id, user)
+def activate(
+    group_id: UUID,
+    db: DbSession,
+    user: CurrentUser,
+    request: Request,
+    journal: AuditSession,
+) -> list[Cycle]:
+    _admin_or_403(
+        db, group_id, user, journal=journal, action=AuditAction.GROUP_ACTIVATED, requete=request
+    )
     group = db.get(TontineGroup, group_id)
     if group is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Groupe introuvable.")
@@ -129,6 +189,16 @@ def activate(group_id: UUID, db: DbSession, user: CurrentUser) -> list[Cycle]:
     except tontine.TontineError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
 
+    # L'ordre de passage se fige ici, et ne se rouvrira plus.
+    audit.consigner(
+        db,
+        acteur=user,
+        action=AuditAction.GROUP_ACTIVATED,
+        cible_type="group",
+        cible_id=group_id,
+        requete=request,
+        cycles=len(cycles),
+    )
     db.commit()
     return cycles
 

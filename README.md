@@ -29,10 +29,11 @@ les réveille et prend une trentaine de secondes.
 | Sujet | Mise en œuvre |
 | --- | --- |
 | Comptabilité | Grand livre en partie double, aucun solde stocké, contrepassation au lieu de correction |
+| Traçabilité | Journal d'audit des actions qui engagent, refus compris, écrit hors de la transaction qu'ils annulent |
 | Fiabilité des paiements | Clé d'idempotence en base, machine à états des transactions, rejeu inoffensif |
 | Intégration opérateur | API MTN MoMo (Collection et Disbursement) sur sandbox, avec double de test |
 | Sécurité | JWT accès/rafraîchissement, limitation de débit, révocation à la déconnexion, webhooks signés HMAC-SHA256 comparés en temps constant, callbacks non signés vérifiés auprès de l'opérateur |
-| Qualité | 140 tests Pytest (93 % de couverture) et 33 tests Vitest, lint Ruff, typage strict `mypy` et TypeScript, CI GitHub Actions |
+| Qualité | 153 tests Pytest (93 % de couverture) et 33 tests Vitest, lint Ruff, typage strict `mypy` et TypeScript, CI GitHub Actions |
 | Exploitation | Docker Compose, migrations Alembic versionnées, healthchecks, tâches de fond dans le conteneur |
 | Terrain | PWA installable, consultation hors connexion, file de cotisations rejouée au retour du réseau |
 
@@ -336,6 +337,63 @@ Enfin, `logging.basicConfig` est posé dans
 journaux, et sans cela rien de ce que consigne l'application n'arriverait nulle
 part — à commencer par les échecs d'un ordonnanceur que personne ne regarde,
 sur un hébergeur dont le terminal distant est payant.
+
+## Le journal d'audit
+
+Qui a versé quelle cagnotte, qui a figé l'ordre de passage d'une tontine, qui a
+tenté de le faire sans en avoir le droit. Le grand livre dit où va l'argent ;
+le journal dit **qui a décidé**.
+
+Cinq actions y figurent, et cinq seulement — celles qui engagent de l'argent ou
+déplacent un droit :
+
+| Action | Ce qu'elle engage |
+| --- | --- |
+| `group.created` | une tontine existe |
+| `group.member_added` | quelqu'un touchera la cagnotte, à une place donnée |
+| `group.activated` | l'ordre de passage se fige et ne se rouvrira plus |
+| `cycle.paid_out` | de l'argent sort |
+| `reconciliation.launched` | des verdicts d'opérateur vont être appliqués |
+
+**Les lectures n'y sont pas.** Journaliser les consultations noierait ces
+lignes-là dans le bruit, et un journal qu'on ne lit plus ne sert à rien.
+
+### Dans quelle transaction ?
+
+C'est la question qui gouverne
+[`app/services/audit.py`](backend/app/services/audit.py), et elle n'a pas la
+même réponse selon l'issue.
+
+**Une action réussie et sa trace vivent ou meurent ensemble.** La trace part
+dans la session de la requête, et le `commit` qui valide l'action valide la
+ligne d'audit du même geste. Les séparer produirait tôt ou tard un versement
+sans trace, ou une trace de versement qui n'a pas eu lieu.
+
+**Un refus n'a pas cette chance.** Il n'y a pas de transaction métier à
+laquelle s'accrocher, et celle de la requête sera défaite en même temps que le
+`403` remonte. Écrire le refus là reviendrait à ne rien écrire — précisément
+pour les faits qu'un journal existe pour retenir. Le refus part donc dans une
+session à lui ([`get_audit_session`](backend/app/api/deps.py)), validée
+aussitôt. Un test le vérifie en défaisant la transaction de la requête et en
+relisant depuis une autre connexion.
+
+### Trois partis pris
+
+- **Rien ne s'y modifie.** Le modèle ne porte pas `updated_at` : un événement
+  d'audit n'a pas de seconde version. `GET /api/v1/admin/audit` est la seule
+  route, et le test le vérifie sur l'OpenAPI plutôt que par des appels — une
+  route absente répond `404`, ce qu'une faute de frappe dans l'URL produirait
+  aussi.
+- **L'acteur est recopié, pas seulement référencé.** La clé étrangère est en
+  `ON DELETE SET NULL` et le numéro est dupliqué dans la ligne : un compte peut
+  disparaître, la trace de ce qu'il a fait doit rester lisible.
+- **Les gardes journalisent elles-mêmes.** `_admin_or_403` consigne son propre
+  refus. Une garde qui laisse ce soin à l'appelant finit contournée par un
+  appel oublié.
+
+Le journal se lit du plus récent au plus ancien, filtrable par action, par
+issue et par acteur. Réservé à `is_staff` — à ne pas confondre avec
+`Membership.is_admin`, qui n'administre qu'une tontine.
 
 ## Modèle de données
 
@@ -645,7 +703,7 @@ secret qu'on cherche à faire disparaître.
 1. `GET /health` répond `ok` **et nomme l'opérateur retenu pour chaque
    produit** — `fake` y signale une clé oubliée, avant qu'un paiement ne parte
    chez le double
-2. `/docs` s'ouvre et liste les 20 opérations
+2. `/docs` s'ouvre et liste les 21 opérations
 3. Une inscription depuis le front aboutit — sinon, `CORS_ORIGINS` ne
    correspond pas exactement à l'origine du navigateur (schéma compris, sans
    barre finale)
@@ -706,7 +764,6 @@ qui rattrape les verdicts non reçus.
 
 ## Reste à faire
 
-- [ ] Journal d'audit horodaté des actions d'administration
 - [ ] Relances automatiques des cotisations en retard (une boucle de plus dans l'ordonnanceur)
 - [ ] Notifications SMS
 

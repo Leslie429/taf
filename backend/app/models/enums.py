@@ -74,3 +74,28 @@ class DivergenceKind(StrEnum):
     UNKNOWN_AT_OPERATOR = "unknown_at_operator"
     # L'opérateur n'a rien tranché, ou n'a pas répondu.
     OPERATOR_SILENT = "operator_silent"
+
+
+class AuditAction(StrEnum):
+    """Ce qu'un journal d'audit retient.
+
+    Seules y figurent les actions qui engagent de l'argent ou déplacent un
+    droit. Journaliser les lectures noierait ces lignes-là dans le bruit.
+    """
+
+    GROUP_CREATED = "group.created"
+    MEMBER_ADDED = "group.member_added"
+    GROUP_ACTIVATED = "group.activated"
+    CYCLE_PAID_OUT = "cycle.paid_out"
+    RECONCILIATION_LAUNCHED = "reconciliation.launched"
+
+
+class AuditOutcome(StrEnum):
+    """Une tentative refusée vaut d'être consignée autant qu'une réussie.
+
+    C'est même souvent elle qui compte : une série de refus sur le versement
+    d'une cagnotte dit quelque chose qu'aucun succès ne dira.
+    """
+
+    ALLOWED = "allowed"
+    DENIED = "denied"

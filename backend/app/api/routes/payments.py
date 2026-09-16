@@ -4,14 +4,14 @@ from fastapi import APIRouter, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from app.api.deps import CurrentUser, DbSession, Reseau
+from app.api.deps import AuditSession, CurrentUser, DbSession, Reseau
 from app.core.config import settings
-from app.models.enums import MembershipStatus, TransactionType
+from app.models.enums import AuditAction, MembershipStatus, TransactionType
 from app.models.ledger import Transaction, WebhookEvent
 from app.models.tontine import Contribution, Cycle, Membership
 from app.schemas.payment import MoMoCallback, TransactionOut
+from app.services import audit, tontine
 from app.services import momo as momo_service
-from app.services import tontine
 
 router = APIRouter(tags=["paiements"])
 
@@ -45,9 +45,18 @@ def pay_contribution(
 
 @router.post("/cycles/{cycle_id}/payout", response_model=TransactionOut)
 def payout(
-    cycle_id: UUID, db: DbSession, user: CurrentUser, reseau: Reseau
+    cycle_id: UUID,
+    db: DbSession,
+    user: CurrentUser,
+    reseau: Reseau,
+    request: Request,
+    journal: AuditSession,
 ) -> Transaction:
-    """Verse la cagnotte au bénéficiaire. Réservé à l'administrateur du groupe."""
+    """Verse la cagnotte au bénéficiaire. Réservé à l'administrateur du groupe.
+
+    C'est l'action la plus lourde de l'application : elle sort de l'argent. Le
+    versement comme la tentative refusée laissent une ligne au journal d'audit.
+    """
     cycle = db.get(Cycle, cycle_id)
     if cycle is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Cycle introuvable.")
@@ -59,6 +68,16 @@ def payout(
         )
     ).scalar_one_or_none()
     if caller is None or not caller.is_admin:
+        audit.consigner_refus(
+            journal,
+            acteur=user,
+            action=AuditAction.CYCLE_PAID_OUT,
+            motif="Action réservée à l'administrateur.",
+            cible_type="cycle",
+            cible_id=cycle_id,
+            requete=request,
+            group_id=str(cycle.group_id),
+        )
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Action réservée à l'administrateur.")
 
     try:
@@ -66,6 +85,19 @@ def payout(
     except tontine.TontineError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
 
+    # Dans la session de la requête : le commit qui suit scelle le versement et
+    # sa trace du même geste.
+    audit.consigner(
+        db,
+        acteur=user,
+        action=AuditAction.CYCLE_PAID_OUT,
+        cible_type="cycle",
+        cible_id=cycle_id,
+        requete=request,
+        group_id=str(cycle.group_id),
+        transaction_id=str(transaction.id),
+        amount_minor=transaction.amount_minor,
+    )
     db.commit()
     db.refresh(transaction)
     return transaction

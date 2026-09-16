@@ -1,3 +1,4 @@
+from collections.abc import Generator
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
@@ -6,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.security import decode_token, jeton_encore_valide
-from app.db.session import get_db
+from app.db.session import SessionLocal, get_db
 from app.models.user import User
 from app.services.momo import (
     FakeMoMoClient,
@@ -19,6 +20,23 @@ from app.services.operateurs import Operateurs, analyser_prefixes
 bearer = HTTPBearer(auto_error=False)
 
 DbSession = Annotated[Session, Depends(get_db)]
+
+
+def get_audit_session() -> Generator[Session, None, None]:
+    """Une session rien que pour le journal d'audit.
+
+    Elle sert à consigner les refus. La session de la requête ne le pourrait
+    pas : elle sera défaite en même temps que l'exception remonte, et le refus
+    disparaîtrait avec elle.
+    """
+    session = SessionLocal()
+    try:
+        yield session
+    finally:
+        session.close()
+
+
+AuditSession = Annotated[Session, Depends(get_audit_session)]
 
 
 def get_current_user(
