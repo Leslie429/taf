@@ -112,7 +112,8 @@ référence, suites de tests et production réellement mesurées. Aucun code mé
   * `OPS-102` — contrôle de rendu réel : `frontend/scripts/verifier-production.mjs` + workflow
     `.github/workflows/production.yml`. Vérifié à la main contre la production (4/4 en 18 s) et
     contre la version d'avant le correctif compilée en local : **échec détecté** (React n° 185,
-    racine vide, code 1). Premier passage dans GitHub Actions : `À VÉRIFIER` après la poussée.
+    racine vide, code 1). Premier passage dans GitHub Actions : run `36012082887` ✅ (commit `b0df215`, après la CI ; bundle inchangé donc contrôle de la version en ligne, 4/4).
   * `BUG-102` — nom du compte de démonstration « Léslie » → « Leslie » : script de démo corrigé,
     migration `0007` testée sur base jetable (seule la ligne visée change, descente, `alembic check`).
-    Appliquée en production par `alembic upgrade head` au démarrage du conteneur Render.
+    Appliquée en production par `alembic upgrade head` au démarrage du conteneur Render :
+    `GET /api/v1/auth/me` du compte de démonstration renvoie « Leslie Tokponto » (`VÉRIFIÉ` le 2026-09-24).
