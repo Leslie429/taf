@@ -41,6 +41,12 @@
 * **État :** protocole, double et client Twilio écrits et **testés par transport simulé**. Jamais
   confrontés au vrai service, faute de compte. Le README l'écrit franchement — **ne pas maquiller ce point**.
 
+## Bugs corrigés
+
+| ID | Bug | Correction | Date |
+|---|---|---|---|
+| BUG-101 | Page blanche en production (boucle de rendu de `OfflineBar`, React n° 185) | instantané stable de la file + test qui rend le bandeau | 2026-09-24 |
+
 ## Dette technique
 
 | ID | Élément | Décision |

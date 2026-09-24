@@ -4,7 +4,7 @@
 > Le [`README.md`](../README.md) reste la référence sur *comment ça marche* ; ce fichier dit
 > *où ça en est*. Statuts : `~/dev-standards/rules/STATUSES.md`.
 
-**Dernière mise à jour :** 2026-09-23 — mesures prises ce jour, pas recopiées.
+**Dernière mise à jour :** 2026-09-24 — incident de production corrigé (voir « Incident du 2026-09-24 »).
 
 ## Projet
 
@@ -96,3 +96,15 @@ référence, suites de tests et production réellement mesurées. Aucun code mé
   Fly d'une app suspendue, inaccessible et sans effet.
 * La base de test locale `tontine_test` doit appartenir au rôle `tontine`, sinon la suite backend
   échoue entièrement.
+
+## Incident du 2026-09-24 — page blanche en production (`BUG-101`)
+
+* **Constat :** le front en production restait blanc pour tout visiteur. Erreur React n° 185
+  (« Maximum update depth exceeded ») dans `OfflineBar`. Le contrôle du 2026-09-23 ne vérifiait
+  que le code HTTP 200 du front, pas son rendu.
+* **Cause racine :** `useQueue` passait `readQueue` à `useSyncExternalStore` ; `readQueue` rend un
+  tableau neuf à chaque appel, React y voyait un changement à chaque rendu et bouclait.
+* **Correction :** instantané stable (`queueSnapshot`), remplacé à chaque écriture, y compris
+  quand la persistance échoue ; instantané serveur constant.
+* **Test de régression :** `src/components/OfflineBar.test.tsx` rend réellement le bandeau ; il
+  **échoue** sur l'ancien code (même erreur) et passe sur le nouveau. Suite front : 37 réussis.

@@ -36,7 +36,26 @@ export function readQueue(): QueuedPayment[] {
   }
 }
 
+/**
+ * Instantané de la file pour `useSyncExternalStore` : la **même référence** tant que la file ne change pas.
+ *
+ * `readQueue()` rend un tableau neuf à chaque appel ; donnée telle quelle à `useSyncExternalStore`, React y
+ * voit un changement à chaque rendu et boucle jusqu'à « Maximum update depth exceeded » (page blanche en
+ * production, constatée le 2026-09-24). L'instantané est lu une fois, puis remplacé à chaque écriture —
+ * y compris quand la persistance échoue, pour que l'interface montre toujours l'état courant.
+ */
+let instantane: QueuedPayment[] | null = null
+
+export function queueSnapshot(): QueuedPayment[] {
+  if (instantane === null) instantane = readQueue()
+  return instantane
+}
+
+/** Instantané côté serveur : une constante, pour la même raison. */
+export const QUEUE_VIDE: QueuedPayment[] = []
+
 function writeQueue(queue: QueuedPayment[]): QueuedPayment[] {
+  instantane = queue
   try {
     localStorage.setItem(QUEUE_KEY, JSON.stringify(queue))
   } catch {

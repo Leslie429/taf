@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react'
 
 import { api } from '@/api/client'
-import { flushQueue, readQueue, subscribeQueue } from '@/offline/queue'
+import { flushQueue, QUEUE_VIDE, queueSnapshot, readQueue, subscribeQueue } from '@/offline/queue'
 import type { QueuedPayment } from '@/offline/queue'
 
 function subscribeReseau(onChange: () => void): () => void {
@@ -28,7 +28,7 @@ export function useOnline(): boolean {
 }
 
 export function useQueue(): QueuedPayment[] {
-  return useSyncExternalStore(subscribeQueue, readQueue, () => [])
+  return useSyncExternalStore(subscribeQueue, queueSnapshot, () => QUEUE_VIDE)
 }
 
 /**
