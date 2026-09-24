@@ -50,7 +50,7 @@ MEMBRES = [
     ("+22901691001", "Aïcha Sossou"),
     ("+22901691002", "Bernadette Aholou"),
     ("+22901691003", "Colette Zinsou"),
-    ("+22901691004", "Léslie Tokponto"),  # le compte de démonstration
+    ("+22901691004", "Leslie Tokponto"),  # le compte de démonstration
     ("+22901691005", "Étienne Dossou"),
 ]
 
