@@ -1,0 +1,78 @@
+name: Production
+
+# Contrôle de la démonstration en ligne dans un vrai navigateur.
+#
+# Un HTTP 200 ne prouve pas qu'une application React s'affiche : le
+# 2026-09-24, la production servait une page blanche (BUG-101) derrière un
+# statut parfaitement sain. `frontend/scripts/verifier-production.mjs` ouvre la
+# page dans Chrome, se connecte avec le compte de démonstration et exige
+# l'écran de la tontine, sans erreur JavaScript.
+#
+# Trois déclencheurs :
+# * après une CI verte sur main — Render redéploie à chaque poussée ; on
+#   attend que le nouveau bundle soit servi avant de contrôler ;
+# * chaque jour — une dépendance externe (Neon, Render, polices) peut casser
+#   la démonstration sans qu'aucun commit n'y touche ;
+# * à la main.
+
+"on":
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+env:
+  URL_DEMO: https://tontine-web-7208.onrender.com
+
+jobs:
+  rendu:
+    # Après une CI rouge, rien n'est à contrôler : le déploiement cassé serait
+    # déjà signalé par la CI elle-même.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: frontend/scripts
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Render met plusieurs minutes à construire l'image du front. Sans cette
+      # attente, le contrôle validerait l'ancienne version. Le nom du bundle
+      # change avec son contenu : on attend qu'il change, au plus 20 minutes.
+      # S'il ne change pas (commit sans effet sur le front, ou déploiement
+      # échoué), on contrôle quand même ce qui est servi, en le signalant.
+      - name: Attendre le déploiement
+        if: github.event_name == 'workflow_run'
+        run: |
+          bundle() { curl -fsS "$URL_DEMO/" | grep -o 'assets/index-[^"]*\.js' | head -1; }
+          avant=$(bundle || true)
+          echo "Bundle servi au départ : ${avant:-aucun}"
+          for _ in $(seq 1 40); do
+            sleep 30
+            maintenant=$(bundle || true)
+            if [ -n "$maintenant" ] && [ "$maintenant" != "$avant" ]; then
+              echo "Nouveau bundle servi : $maintenant"
+              exit 0
+            fi
+          done
+          echo "::warning::Bundle inchangé après 20 minutes : contrôle de la version déjà en ligne."
+
+      - name: Vérifier le rendu réel
+        run: node frontend/scripts/verifier-production.mjs "$URL_DEMO"
+        env:
+          CHROME: google-chrome

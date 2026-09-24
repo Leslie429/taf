@@ -766,6 +766,13 @@ secret qu'on cherche à faire disparaître.
    correspond pas exactement à l'origine du navigateur (schéma compris, sans
    barre finale)
 4. Le compte de démonstration est créé et documenté en tête de ce README
+5. La démonstration **s'affiche** — un HTTP 200 ne le prouve pas : le
+   2026-09-24, la production servait une page blanche derrière un statut sain.
+   Le workflow [`Production`](.github/workflows/production.yml) le vérifie
+   dans un vrai Chrome après chaque CI verte sur `main` (une fois le nouveau
+   bundle servi) et chaque jour : connexion avec le compte de démonstration,
+   écran de la tontine attendu, aucune erreur JavaScript tolérée. À la main :
+   `node frontend/scripts/verifier-production.mjs [URL]`
 
 ### Peupler la démonstration
 

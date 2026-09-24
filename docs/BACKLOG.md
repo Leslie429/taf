@@ -46,6 +46,8 @@
 | ID | Bug | Correction | Date |
 |---|---|---|---|
 | BUG-101 | Page blanche en production (boucle de rendu de `OfflineBar`, React n° 185) | instantané stable de la file + test qui rend le bandeau | 2026-09-24 |
+| BUG-102 | Nom du compte de démonstration semé « Léslie Tokponto » (accent fautif) | script de démo corrigé + migration de données `0007`, conditionnelle (téléphone et ancien nom exacts) | 2026-09-24 |
+| OPS-102 | Le contrôle de production ne vérifiait qu'un HTTP 200, aveugle à BUG-101 | workflow `Production` : rendu réel dans Chrome, connexion démo, zéro erreur JS ; rejoué sur la version boguée, il échoue bien (React n° 185, racine vide) | 2026-09-24 |
 
 ## Dette technique
 
